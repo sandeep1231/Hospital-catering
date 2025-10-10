@@ -1,0 +1,9 @@
+node_modules/,
+dist/, 
+.angular/cache/, 
+coverage/, 
+.env, 
+frontend/node_modules/, 
+backend/node_modules/, 
+frontend/dist/, 
+backend/dist/

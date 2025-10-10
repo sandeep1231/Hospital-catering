@@ -1,0 +1,29 @@
+<div class="login-hero">
+  <div class="me-auto">
+    <h1>Welcome back</h1>
+    <p class="lead">Sign in to manage diets, orders and deliveries.</p>
+  </div>
+
+  <div class="card login-card">
+    <div class="card-body">
+      <h4 class="mb-3">Sign in</h4>
+      <form (submit)="login($event)">
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" [(ngModel)]="email" name="email" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <input class="form-control" type="password" [(ngModel)]="password" name="password" required />
+        </div>
+        <div *ngIf="error" class="alert alert-danger">{{error}}</div>
+        <div class="d-grid">
+          <button class="btn btn-primary" type="submit">Sign in</button>
+        </div>
+      </form>
+      <div class="mt-3 text-center small">
+        Don't have an account? <a routerLink="/register">Sign up</a>
+      </div>
+    </div>
+  </div>
+</div>

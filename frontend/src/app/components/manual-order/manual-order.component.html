@@ -1,0 +1,71 @@
+<div class="container">
+  <div class="d-flex align-items-center mb-3">
+    <h4 class="me-auto mb-0">Create Order</h4>
+    <a class="btn btn-outline-secondary" routerLink="/orders">Back to Orders</a>
+  </div>
+
+  <form (submit)="save($event)">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-3">
+            <label class="form-label">Date</label>
+            <input class="form-control" type="date" [(ngModel)]="date" name="date" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <h5 class="mb-0 me-auto">Items</h5>
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">Add item</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th style="width:30%">Patient</th>
+                <th style="width:40%">Menu Item</th>
+                <th style="width:10%">Qty</th>
+                <th>Notes</th>
+                <th style="width:80px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let it of items; let i = index">
+                <td>
+                  <select class="form-select" [(ngModel)]="it.patientId" name="p{{i}}">
+                    <option [ngValue]="''">-- select patient --</option>
+                    <option *ngFor="let p of patients" [value]="p._id">{{p.name}}</option>
+                  </select>
+                </td>
+                <td>
+                  <select class="form-select" [(ngModel)]="it.menuItemId" name="m{{i}}">
+                    <option [ngValue]="''">-- select menu --</option>
+                    <option *ngFor="let m of menu" [value]="m._id">{{m.name}}</option>
+                  </select>
+                </td>
+                <td>
+                  <input class="form-control" type="number" min="1" [(ngModel)]="it.quantity" name="q{{i}}" />
+                </td>
+                <td>
+                  <input class="form-control" [(ngModel)]="it.notes" name="n{{i}}" />
+                </td>
+                <td>
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)">Remove</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="text-end">
+          <button class="btn btn-primary" type="submit">Create Order</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>

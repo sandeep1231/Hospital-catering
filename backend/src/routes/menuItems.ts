@@ -1,0 +1,29 @@
+import { Router, Request, Response } from 'express';
+import MenuItem from '../models/menuItem';
+import auth from '../middleware/auth';
+
+const router = Router();
+
+router.get('/', auth, async (req: Request, res: Response) => {
+  const items = await MenuItem.find().limit(200);
+  res.json(items);
+});
+
+router.post('/', auth, async (req: Request, res: Response) => {
+  const m = new MenuItem(req.body);
+  await m.save();
+  res.status(201).json(m);
+});
+
+router.put('/:id', auth, async (req: Request, res: Response) => {
+  const updated = await MenuItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!updated) return res.status(404).json({ message: 'not found' });
+  res.json(updated);
+});
+
+router.delete('/:id', auth, async (req: Request, res: Response) => {
+  await MenuItem.findByIdAndDelete(req.params.id);
+  res.status(204).send();
+});
+
+export default router;

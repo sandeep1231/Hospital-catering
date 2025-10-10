@@ -1,0 +1,7 @@
+/* patients list styles */
+.card { transition: transform .08s ease; }
+.card:hover { transform: translateY(-2px); }
+
+/* simple list tweaks */
+.list-group-item { cursor: pointer; }
+.list-group-item h5 { font-size: 1rem; }

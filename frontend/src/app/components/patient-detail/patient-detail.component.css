@@ -1,0 +1,11 @@
+/* Simple responsive tweaks for patient detail form */
+.card .form-label {
+  font-weight: 600;
+}
+
+@media (max-width: 576px) {
+  .d-flex .btn-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+  }
+}

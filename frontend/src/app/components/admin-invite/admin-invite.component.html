@@ -1,0 +1,33 @@
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h4 class="mb-3">Create a new user</h4>
+          <form (submit)="submit($event)">
+            <div class="mb-3">
+              <label class="form-label">Full name</label>
+              <input class="form-control" [(ngModel)]="name" name="name" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input class="form-control" type="email" [(ngModel)]="email" name="email" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input class="form-control" type="password" [(ngModel)]="password" name="password" required />
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Role</label>
+              <select class="form-select" [(ngModel)]="role" name="role">
+                <option *ngFor="let r of roles" [value]="r">{{r}}</option>
+              </select>
+              <div class="form-text">Only admins can set roles here.</div>
+            </div>
+            <button class="btn btn-primary" type="submit" [disabled]="loading">Create user</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

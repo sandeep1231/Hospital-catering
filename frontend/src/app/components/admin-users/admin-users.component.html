@@ -1,0 +1,82 @@
+<div class="d-flex align-items-center mb-3">
+  <h4 class="me-auto mb-0">User Management</h4>
+  <div class="input-group" style="max-width:320px;">
+    <input class="form-control" placeholder="Search users..." [(ngModel)]="q" (keyup.enter)="load()" />
+    <button class="btn btn-outline-secondary" (click)="load()">Search</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="mb-3">Create user</h5>
+        <form (submit)="create($event)">
+          <div class="mb-2">
+            <label class="form-label">Name</label>
+            <input class="form-control" [(ngModel)]="form.name" name="name" required />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Email</label>
+            <input class="form-control" type="email" [(ngModel)]="form.email" name="email" required />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" [(ngModel)]="form.password" name="password" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Role</label>
+            <select class="form-select" [(ngModel)]="form.role" name="role">
+              <option *ngFor="let r of roles" [value]="r">{{r}}</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Create</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <h5 class="mb-0 me-auto">Users ({{users.length}})</h5>
+          <div *ngIf="loading" class="small text-muted">Loading...</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th style="width:220px">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let u of users">
+                <td><input class="form-control form-control-sm" [(ngModel)]="u.name" /></td>
+                <td>{{u.email}}</td>
+                <td>
+                  <select class="form-select form-select-sm" [(ngModel)]="u.role">
+                    <option *ngFor="let r of roles" [value]="r">{{r}}</option>
+                  </select>
+                </td>
+                <td>
+                  <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text">New pass</span>
+                    <input class="form-control" [(ngModel)]="u._newPassword" placeholder="leave blank" />
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" (click)="update(u)">Save</button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="remove(u)">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,112 @@
+<div class="login-hero">
+  <div class="me-auto">
+    <h1>Create Patient</h1>
+    <p class="lead">Enter patient details</p>
+  </div>
+
+  <div class="card login-card">
+    <div class="card-body">
+      <div *ngIf="serverErrors?.length" class="alert alert-danger">
+        <ul class="mb-0"><li *ngFor="let e of serverErrors">{{e.message || e}}</li></ul>
+      </div>
+      <form (submit)="save($event)">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Name</label>
+            <input class="form-control" [class.is-invalid]="fieldErrors?.name" [(ngModel)]="model.name" name="name" required />
+            <div *ngIf="fieldErrors?.name" class="invalid-feedback d-block">{{fieldErrors.name}}</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Phone</label>
+            <input class="form-control" [class.is-invalid]="fieldErrors?.phone" [(ngModel)]="model.phone" name="phone" />
+            <div *ngIf="fieldErrors?.phone" class="invalid-feedback d-block">{{fieldErrors.phone}}</div>
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label">In Date</label>
+            <input class="form-control" type="date" [(ngModel)]="model.inDate" name="inDate" />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">In Time</label>
+            <input class="form-control" type="time" [(ngModel)]="model.inTime" name="inTime" />
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label">Room Type</label>
+            <select class="form-select" [(ngModel)]="model.roomType" name="roomType">
+              <option value="Ward">Ward</option>
+              <option value="ICU">ICU</option>
+              <option value="Cabin">Cabin</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">Bed No</label>
+            <input class="form-control" [(ngModel)]="model.bed" name="bed" />
+          </div>
+
+          <div class="col-6 col-md-4">
+            <label class="form-label">Diet</label>
+            <input class="form-control" [(ngModel)]="model.diet" name="diet" />
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label">Status</label>
+            <select class="form-select" [(ngModel)]="model.status" name="status">
+              <option value="in_patient">In Patient</option>
+              <option value="discharged">Discharged</option>
+              <option value="outpatient">Outpatient</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label">Transaction Type</label>
+            <select class="form-select" [(ngModel)]="model.transactionType" name="transactionType">
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="insurance">Insurance</option>
+            </select>
+          </div>
+
+          <div class="col-4 col-md-2">
+            <label class="form-label">Age</label>
+            <input class="form-control" type="number" [(ngModel)]="model.age" name="age" />
+            <div *ngIf="fieldErrors?.age" class="invalid-feedback d-block">{{fieldErrors.age}}</div>
+          </div>
+          <div class="col-4 col-md-2">
+            <label class="form-label">Sex</label>
+            <select class="form-select" [(ngModel)]="model.sex" name="sex">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="col-4 col-md-4">
+            <label class="form-label">Total Bill</label>
+            <input class="form-control" type="number" [(ngModel)]="model.totalBill" name="totalBill" />
+            <div *ngIf="fieldErrors?.totalBill" class="invalid-feedback d-block">{{fieldErrors.totalBill}}</div>
+          </div>
+
+          <div class="col-6 col-md-4">
+            <label class="form-label">Daily Bill</label>
+            <input class="form-control" type="number" [(ngModel)]="model.dailyBill" name="dailyBill" />
+            <div *ngIf="fieldErrors?.dailyBill" class="invalid-feedback d-block">{{fieldErrors.dailyBill}}</div>
+          </div>
+          <div class="col-6 col-md-8">
+            <label class="form-label">Recurring Details (JSON)</label>
+            <input class="form-control" [(ngModel)]="model.recurringDetails" name="recurringDetails" />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Feedback</label>
+            <textarea class="form-control" rows="2" [(ngModel)]="model.feedback" name="feedback"></textarea>
+          </div>
+
+          <div class="col-12 text-end">
+            <button class="btn btn-secondary me-2" type="button" (click)="back()">Cancel</button>
+            <button class="btn btn-primary" type="submit">Create Patient</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
