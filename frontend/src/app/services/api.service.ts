@@ -4,7 +4,20 @@ import { Router } from '@angular/router';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  base = 'http://localhost:4000/api';
+  // Dynamically choose API base:
+  // - If served from GitHub Pages, call the Render backend
+  // - Otherwise (e.g., local dev), call localhost
+  base = (() => {
+    const renderBase = 'https://hospital-catering-2.onrender.com/api';
+    const localBase = 'http://localhost:4000/api';
+    try {
+      const host = (typeof window !== 'undefined' && window.location && window.location.host) ? window.location.host : '';
+      if (host.includes('github.io')) return renderBase;
+      return localBase;
+    } catch {
+      return localBase;
+    }
+  })();
   constructor(private http: HttpClient, private router: Router) {}
 
   private getHeaders() {
