@@ -41,6 +41,19 @@ jobs:
       - name: Add SPA fallback (404.html)
         run: cp dist/catering-frontend/index.html dist/catering-frontend/404.html
 
+      - name: Show build output (diagnostic)
+        run: |
+          node -v
+          npm -v
+          ls -la
+          echo "--- dist contents ---"
+          ls -la dist || true
+          echo "--- catering-frontend contents ---"
+          ls -la dist/catering-frontend || true
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
