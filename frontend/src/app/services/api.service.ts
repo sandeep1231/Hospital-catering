@@ -1,10 +1,11 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Router } from '@angular/router';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   base = 'http://localhost:4000/api';
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private router: Router) {}
 
   private getHeaders() {
     const token = localStorage.getItem('token');
@@ -17,6 +18,15 @@ export class ApiService {
   post(path: string, body: any, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.post(this.base + path, body, options); }
   put(path: string, body: any, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.put(this.base + path, body, options); }
   delete(path: string, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.delete(this.base + path, options); }
+
+  // blob download with auth header
+  getBlob(path: string, params?: any) {
+    const options: any = this.getHeaders();
+    if (params) options.params = params;
+    options.responseType = 'blob';
+    options.observe = 'response';
+    return this.http.get(this.base + path, options);
+  }
 
   // auth helpers
   setToken(token: string) { localStorage.setItem('token', token); }
@@ -36,6 +46,15 @@ export class ApiService {
 
   getUser() { return this.parseJwt(this.getToken()); }
   getUserRole() { const u: any = this.getUser(); return u?.role || null; }
-  isLoggedIn() { return !!this.getToken(); }
-  logout() { this.removeToken(); }
+  isLoggedIn() {
+    const token = this.getToken();
+    if (!token) return false;
+    const payload: any = this.parseJwt(token);
+    if (payload?.exp && Date.now() >= payload.exp * 1000) {
+      this.logout();
+      return false;
+    }
+    return true;
+  }
+  logout() { this.removeToken(); this.router.navigate(['/login']); }
 }

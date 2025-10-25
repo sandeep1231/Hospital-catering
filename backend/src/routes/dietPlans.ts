@@ -3,21 +3,31 @@ import DietPlan from '../models/dietPlan';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import Order from '../models/order';
+import MenuItem from '../models/menuItem';
+import Patient from '../models/patient';
 
 const router = Router();
 
 router.get('/', auth, async (req: Request, res: Response) => {
-  const plans = await DietPlan.find().limit(100);
+  const hid = (req as any).user?.hospitalId;
+  const plans = await DietPlan.find(hid ? { hospitalId: hid } : {}).limit(100);
   res.json(plans);
 });
 
 router.post('/', auth, requireRole('dietician', 'admin'), async (req: Request, res: Response) => {
-  const p = new DietPlan(req.body);
+  const hid = (req as any).user?.hospitalId;
+  const p = new DietPlan({ ...req.body, hospitalId: hid });
   await p.save();
+
+  // if plan is assigned to a patient, update patient's diet summary to plan name
+  try {
+    if ((p as any).patientId) {
+      await Patient.findOneAndUpdate({ _id: (p as any).patientId, ...(hid ? { hospitalId: hid } : {}) }, { diet: (p as any).name || 'Active diet plan' });
+    }
+  } catch (e) { console.error('Failed to update patient diet after plan create', e); }
 
   let createdOrder = null;
   try {
-    // If a patient is selected, create an order for the plan's start date (immediate order)
     if (p.patientId && p.startDate) {
       const d = new Date(p.startDate);
       const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -29,11 +39,12 @@ router.post('/', auth, requireRole('dietician', 'admin'), async (req: Request, r
           const id = typeof itm === 'string' ? itm : itm?.id;
           const notes = typeof itm === 'string' ? undefined : itm?.notes;
           if (!id) continue;
-          items.push({ patientId: p.patientId, menuItemId: id, quantity: 1, mealSlot: meal.slot, notes });
+          const menu = await MenuItem.findById(id).lean();
+          items.push({ patientId: p.patientId, menuItemId: id, quantity: 1, mealSlot: meal.slot, notes, unitPrice: (menu?.price as number) || 0 });
         }
       }
       if (items.length > 0) {
-        createdOrder = await Order.create({ date: dateOnly, items, sourcePlanId: p._id, notes: 'Created from diet plan' });
+        createdOrder = await Order.create({ date: dateOnly, items, sourcePlanId: p._id, notes: 'Created from diet plan', hospitalId: hid });
       }
     }
   } catch (e) { console.error('Failed to create order from diet plan', e); }

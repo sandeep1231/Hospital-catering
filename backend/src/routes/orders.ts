@@ -3,6 +3,7 @@ import Order from '../models/order';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import AuditLog from '../models/auditLog';
+import MenuItem from '../models/menuItem';
 
 const router = Router();
 
@@ -13,60 +14,99 @@ async function writeAudit(entity: string, entityId: any, action: string, user: a
 
 // list orders for a date
 router.get('/', auth, async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const date = req.query.date ? new Date(String(req.query.date)) : new Date();
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const orders = await Order.find({ date: dateOnly }).limit(500).populate('items.menuItemId').populate('items.patientId');
+  const cond: any = { date: dateOnly };
+  if (user?.hospitalId) cond.hospitalId = user.hospitalId;
+  const orders = await Order.find(cond).limit(500).populate('items.menuItemId').populate('items.patientId');
   res.json(orders);
 });
 
 // create manual order (dietician or admin)
 router.post('/', auth, requireRole('dietician','admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { date, items, notes } = req.body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'items required' });
   const d = date ? new Date(date) : new Date();
   const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  // allow mealSlot to be passed from client (optional)
-  const normalizedItems = items.map((it: any) => ({ patientId: it.patientId, menuItemId: it.menuItemId, quantity: it.quantity || 1, notes: it.notes, mealSlot: it.mealSlot }));
-  const order = await Order.create({ date: dateOnly, items: normalizedItems, notes, kitchenStatus: 'pending', deliveryStatus: 'pending' });
-  await writeAudit('Order', order._id, 'create', (req as any).user, { manual: true });
+  // allow mealSlot to be passed from client (optional) and compute unitPrice
+  const normalizedItems = await Promise.all(items.map(async (it: any) => {
+    const menu = await MenuItem.findById(it.menuItemId).lean();
+    return {
+      patientId: it.patientId,
+      menuItemId: it.menuItemId,
+      quantity: it.quantity || 1,
+      notes: it.notes,
+      mealSlot: it.mealSlot,
+      unitPrice: (menu?.price as number) || 0,
+      deliveryStatus: 'pending'
+    };
+  }));
+  const order = await Order.create({ date: dateOnly, items: normalizedItems, notes, kitchenStatus: 'pending', deliveryStatus: 'pending', hospitalId: user?.hospitalId });
+  await writeAudit('Order', order._id, 'create', user, { manual: true });
   const populated = await Order.findById(order._id).populate('items.menuItemId').populate('items.patientId');
   res.status(201).json(populated);
 });
 
 // kitchen users update kitchen status
 router.put('/:id/kitchen-status', auth, requireRole('kitchen', 'vendor', 'admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { kitchenStatus } = req.body;
-  const updated = await Order.findByIdAndUpdate(req.params.id, { kitchenStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
+  const updated = await Order.findOneAndUpdate({ _id: req.params.id, ...(user?.hospitalId ? { hospitalId: user.hospitalId } : {}) }, { kitchenStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
   if (!updated) return res.status(404).json({ message: 'not found' });
-  await writeAudit('Order', updated._id, 'kitchenStatus:'+kitchenStatus, (req as any).user, { kitchenStatus });
+  await writeAudit('Order', updated._id, 'kitchenStatus:'+kitchenStatus, user, { kitchenStatus });
   res.json(updated);
 });
 
 // delivery users update delivery status
 router.put('/:id/deliver', auth, requireRole('delivery', 'admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { deliveryStatus } = req.body;
-  const updated = await Order.findByIdAndUpdate(req.params.id, { deliveryStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
+  const updated = await Order.findOneAndUpdate({ _id: req.params.id, ...(user?.hospitalId ? { hospitalId: user.hospitalId } : {}) }, { deliveryStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
   if (!updated) return res.status(404).json({ message: 'not found' });
-  await writeAudit('Order', updated._id, 'deliveryStatus:'+deliveryStatus, (req as any).user, { deliveryStatus });
+  await writeAudit('Order', updated._id, 'deliveryStatus:'+deliveryStatus, user, { deliveryStatus });
   res.json(updated);
 });
 
 // admin override endpoint
 router.put('/:id/status', auth, requireRole('admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { kitchenStatus, deliveryStatus } = req.body;
-  const updated = await Order.findByIdAndUpdate(req.params.id, { kitchenStatus, deliveryStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
+  const updated = await Order.findOneAndUpdate({ _id: req.params.id, ...(user?.hospitalId ? { hospitalId: user.hospitalId } : {}) }, { kitchenStatus, deliveryStatus }, { new: true }).populate('items.menuItemId').populate('items.patientId');
   if (!updated) return res.status(404).json({ message: 'not found' });
-  await writeAudit('Order', updated._id, 'adminStatusUpdate', (req as any).user, { kitchenStatus, deliveryStatus });
+  await writeAudit('Order', updated._id, 'adminStatusUpdate', user, { kitchenStatus, deliveryStatus });
   res.json(updated);
+});
+
+// per-item mark delivered and roll up order deliveryStatus
+router.put('/:orderId/items/:idx/deliver', auth, requireRole('delivery','admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { orderId, idx } = req.params as any;
+  const order: any = await Order.findOne({ _id: orderId, ...(user?.hospitalId ? { hospitalId: user.hospitalId } : {}) });
+  if (!order) return res.status(404).json({ message: 'not found' });
+  const i = Number(idx);
+  if (!Number.isInteger(i) || i < 0 || i >= order.items.length) return res.status(400).json({ message: 'bad item index' });
+  order.items[i].deliveryStatus = 'delivered';
+  // if all delivered, set order deliveryStatus delivered else pending
+  const allDelivered = order.items.every((it: any) => it.deliveryStatus === 'delivered');
+  order.deliveryStatus = allDelivered ? 'delivered' : 'pending';
+  await order.save();
+  await writeAudit('Order', order._id, 'itemDelivered', user, { itemIndex: i });
+  const populated = await Order.findById(order._id).populate('items.menuItemId').populate('items.patientId');
+  res.json(populated);
 });
 
 // bulk deliver (admin only)
 router.post('/bulk-deliver', auth, requireRole('admin'), async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const ids: string[] = req.body.ids || [];
   if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'ids required' });
-  const result = await Order.updateMany({ _id: { $in: ids } }, { deliveryStatus: 'delivered' });
+  const cond: any = { _id: { $in: ids } };
+  if (user?.hospitalId) cond.hospitalId = user.hospitalId;
+  const result = await Order.updateMany(cond, { deliveryStatus: 'delivered' });
   try {
-    for (const id of ids) await writeAudit('Order', id, 'deliveryStatus:delivered', (req as any).user, { bulk: true });
+    for (const id of ids) await writeAudit('Order', id, 'deliveryStatus:delivered', user, { bulk: true });
   } catch (e) { console.error('audit error', e); }
   res.json({ modifiedCount: result.matchedCount });
 });

@@ -5,3 +5,14 @@
 /* simple list tweaks */
 .list-group-item { cursor: pointer; }
 .list-group-item h5 { font-size: 1rem; }
+
+/* Keep horizontal overflow within table container (when using table-responsive Bootstrap wrapper) */
+.table-scroll {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* Optional: minimum width to avoid squashed columns if reusing table-scroll elsewhere */
+.table-scroll table {
+	min-width: 900px;
+}

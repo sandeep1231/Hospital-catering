@@ -21,8 +21,11 @@ import { ToastService } from '../../services/toast.service';
           <label class="form-label">Patient (optional)</label>
           <select class="form-select" [(ngModel)]="model.patientId" name="patientId">
             <option value="">-- Unassigned --</option>
-            <option *ngFor="let p of patients" [value]="p._id">{{p.name}} — {{p.ward || ''}}/{{p.bed || ''}}</option>
+            <option *ngFor="let p of patients" [value]="p._id">{{p.name}} ({{p.mrn || 'no MRN'}}) — {{p.ward || ''}}/{{p.bed || ''}}</option>
           </select>
+          <div class="form-text" *ngIf="model.patientId && selectedPatientMrn() === ''">
+            Please set MRN/Patient ID for this patient in their profile before assigning a plan.
+          </div>
         </div>
 
         <div class="col-12 col-md-4">
@@ -169,8 +172,13 @@ export class DietPlanEditorComponent implements OnInit {
     items: (Array.isArray(m.items) ? m.items : [m.items].filter(Boolean)).map((id: string) => ({ id, notes: (m.itemNotes||{})[id] || undefined }))
   })); }
 
+  selectedPatientMrn(): string { const p = this.patients.find(x => x._id === this.model.patientId); return p?.mrn ? String(p.mrn) : ''; }
+
   save(e: Event) {
     e.preventDefault();
+    // if a patient is chosen, enforce MRN presence
+    if (this.model.patientId && !this.selectedPatientMrn()) { this.toast.error('Please set MRN/Patient ID for the selected patient before saving.'); return; }
+
     const payload: any = {
       name: this.model.name,
       patientId: this.model.patientId || undefined,

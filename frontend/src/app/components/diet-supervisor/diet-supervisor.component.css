@@ -1,0 +1,21 @@
+.w-date { width: 110px; }
+.w-patient { width: 180px; }
+.w-mobile { width: 130px; }
+.w-room { width: 120px; }
+.w-bed { width: 70px; }
+.w-diet { width: 140px; }
+.w-note { width: 200px; }
+.w-status { width: 160px; }
+
+/* Ensure table does not shrink columns below set widths */
+table.table th.w-date, table.table td:nth-child(1) { min-width: 110px; }
+table.table th.w-patient, table.table td:nth-child(2) { min-width: 180px; }
+table.table th.w-mobile, table.table td:nth-child(3) { min-width: 130px; }
+table.table th.w-room, table.table td:nth-child(4) { min-width: 120px; }
+table.table th.w-bed, table.table td:nth-child(5) { min-width: 70px; }
+table.table th.w-diet, table.table td:nth-child(6) { min-width: 140px; }
+table.table th.w-note, table.table td:nth-child(7) { min-width: 200px; }
+table.table th.w-status, table.table td:nth-child(8) { min-width: 160px; }
+
+/* Keep status text and button on a single line */
+table.table th.w-status, table.table td:nth-child(8) { white-space: nowrap; }

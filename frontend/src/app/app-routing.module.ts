@@ -10,8 +10,12 @@ import { AuthGuard } from './guards/auth.guard';
 import { RegisterComponent } from './components/register/register.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
 import { AdminInviteComponent } from './components/admin-invite/admin-invite.component';
+import { AdminDietsComponent } from './components/admin-diets/admin-diets.component';
 import { ManualOrderComponent } from './components/manual-order/manual-order.component';
 import { AdminGuard } from './guards/admin.guard';
+import { AdminMenuComponent } from './components/admin-menu/admin-menu.component';
+import { ReportsDashboardComponent } from './components/reports-dashboard/reports-dashboard.component';
+import { DietSupervisorComponent } from './components/diet-supervisor/diet-supervisor.component';
 
 const routes: Routes = [
   { path: 'register', component: RegisterComponent },
@@ -25,6 +29,11 @@ const routes: Routes = [
   { path: 'patients/:id', component: PatientDetailComponent, canActivate: [AuthGuard] },
   { path: 'orders', component: OrdersComponent, canActivate: [AuthGuard] },
   { path: 'diet-plans', component: DietPlanEditorComponent, canActivate: [AuthGuard] },
+  { path: 'admin/menu', component: AdminMenuComponent, canActivate: [AdminGuard] },
+  { path: 'admin/diets', component: AdminDietsComponent, canActivate: [AdminGuard] },
+  
+  { path: 'reports', component: ReportsDashboardComponent, canActivate: [AdminGuard] },
+  { path: 'diet-supervisor', component: DietSupervisorComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: '' }
 ];
 

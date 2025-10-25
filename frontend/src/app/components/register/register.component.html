@@ -20,6 +20,13 @@
           <label class="form-label">Password</label>
           <input class="form-control" type="password" [(ngModel)]="password" name="password" required />
         </div>
+        <div class="mb-3">
+          <label class="form-label">Hospital</label>
+          <select class="form-select" [(ngModel)]="hospitalId" name="hospitalId">
+            <option value="">Select hospital</option>
+            <option *ngFor="let h of hospitals" [value]="h._id">{{h.name}}</option>
+          </select>
+        </div>
         <div *ngIf="error" class="alert alert-danger">{{error}}</div>
         <div class="d-grid">
           <button class="btn btn-primary" type="submit" [disabled]="loading">Create account</button>

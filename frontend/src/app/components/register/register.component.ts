@@ -14,15 +14,19 @@ export class RegisterComponent {
   password = '';
   loading = false;
   error = '';
+  hospitals: any[] = [];
+  hospitalId = '';
 
-  constructor(private api: ApiService, private toast: ToastService, private router: Router) {}
+  constructor(private api: ApiService, private toast: ToastService, private router: Router) {
+    this.api.get('/hospitals').subscribe((res:any)=> this.hospitals = res || [], console.error);
+  }
 
   register(e: Event) {
     e.preventDefault();
     this.error = '';
     if (!this.name || !this.email || !this.password) { this.error = 'All fields are required'; return; }
     this.loading = true;
-    this.api.post('/auth/register', { name: this.name, email: this.email, password: this.password }).subscribe((res:any) => {
+    this.api.post('/auth/register', { name: this.name, email: this.email, password: this.password, hospitalId: this.hospitalId || undefined }).subscribe((res:any) => {
       this.loading = false;
       this.toast.success('Account created — please sign in');
       this.router.navigate(['/login']);

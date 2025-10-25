@@ -4,110 +4,260 @@
     <h4 class="mb-0">Patient detail</h4>
   </div>
 
-  <div *ngIf="patient" class="card">
+  <div *ngIf="patient" class="card mb-3">
     <div class="card-body">
       <div *ngIf="serverErrors?.length" class="alert alert-danger">
-        <ul class="mb-0">
-          <li *ngFor="let e of serverErrors">{{e.message || e}}</li>
-        </ul>
+        <ul class="mb-0"><li *ngFor="let e of serverErrors">{{e.message || e}}</li></ul>
       </div>
       <form (submit)="save($event)">
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label">Name</label>
-            <input class="form-control" [(ngModel)]="patient.name" name="name" required [class.is-invalid]="fieldErrors?.name" />
-            <div *ngIf="fieldErrors?.name" class="invalid-feedback d-block">{{fieldErrors.name}}</div>
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label">Phone</label>
-            <input class="form-control" [(ngModel)]="patient.phone" name="phone" [class.is-invalid]="fieldErrors?.phone" />
-            <div *ngIf="fieldErrors?.phone" class="invalid-feedback d-block">{{fieldErrors.phone}}</div>
-          </div>
-
-          <div class="col-6 col-md-3">
-            <label class="form-label">In Date</label>
-            <input class="form-control" type="date" [(ngModel)]="patient.inDate" name="inDate" />
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label">In Time</label>
-            <input class="form-control" type="time" [(ngModel)]="patient.inTime" name="inTime" />
-          </div>
-
-          <div class="col-6 col-md-3">
-            <label class="form-label">Room Type</label>
-            <select class="form-select" [(ngModel)]="patient.roomType" name="roomType">
-              <option value="Ward">Ward</option>
-              <option value="ICU">ICU</option>
-              <option value="Cabin">Cabin</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label">Bed No</label>
-            <input class="form-control" [(ngModel)]="patient.bed" name="bed" />
-          </div>
-
-          <div class="col-6 col-md-4">
-            <label class="form-label">Diet</label>
-            <input class="form-control" [(ngModel)]="patient.diet" name="diet" />
-          </div>
-          <div class="col-6 col-md-4">
-            <label class="form-label">Status</label>
-            <select class="form-select" [(ngModel)]="patient.status" name="status">
-              <option value="in_patient">In Patient</option>
-              <option value="discharged">Discharged</option>
-              <option value="outpatient">Outpatient</option>
-            </select>
-          </div>
-          <div class="col-6 col-md-4">
-            <label class="form-label">Transaction Type</label>
-            <select class="form-select" [(ngModel)]="patient.transactionType" name="transactionType">
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="insurance">Insurance</option>
-            </select>
-          </div>
-
-          <div class="col-4 col-md-2">
-            <label class="form-label">Age</label>
-            <input class="form-control" type="number" [(ngModel)]="patient.age" name="age" />
-            <div *ngIf="fieldErrors?.age" class="invalid-feedback d-block">{{fieldErrors.age}}</div>
-          </div>
-          <div class="col-4 col-md-2">
-            <label class="form-label">Sex</label>
-            <select class="form-select" [(ngModel)]="patient.sex" name="sex">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="col-4 col-md-4">
-            <label class="form-label">Total Bill</label>
-            <input class="form-control" type="number" [(ngModel)]="patient.totalBill" name="totalBill" />
-            <div *ngIf="fieldErrors?.totalBill" class="invalid-feedback d-block">{{fieldErrors.totalBill}}</div>
-          </div>
-
-          <div class="col-6 col-md-4">
-            <label class="form-label">Daily Bill</label>
-            <input class="form-control" type="number" [(ngModel)]="patient.dailyBill" name="dailyBill" />
-            <div *ngIf="fieldErrors?.dailyBill" class="invalid-feedback d-block">{{fieldErrors.dailyBill}}</div>
-          </div>
-          <div class="col-6 col-md-8">
-            <label class="form-label">Recurring Details (JSON)</label>
-            <input class="form-control" [(ngModel)]="patient.recurringDetails" name="recurringDetails" />
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Feedback</label>
-            <textarea class="form-control" rows="2" [(ngModel)]="patient.feedback" name="feedback"></textarea>
-          </div>
-
-          <div class="col-12 text-end">
-            <button class="btn btn-secondary me-2" type="button" (click)="reset()">Reset</button>
-            <button class="btn btn-primary" type="submit">Save Patient</button>
+        <!-- Identity & Contact -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Identity & Contact</h6></div>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Name <span class="text-danger">*</span></label>
+              <input class="form-control" [(ngModel)]="patient.name" name="name" required [class.is-invalid]="fieldErrors?.name" [disabled]="isDisabled('name')" />
+              <div *ngIf="fieldErrors?.name" class="invalid-feedback d-block">{{fieldErrors.name}}</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Phone <span class="text-danger">*</span></label>
+              <input class="form-control" [(ngModel)]="patient.phone" name="phone" required [class.is-invalid]="fieldErrors?.phone" [disabled]="isDisabled('phone')" />
+              <div *ngIf="fieldErrors?.phone" class="invalid-feedback d-block">{{fieldErrors.phone}}</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Patient Code</label>
+              <input class="form-control" [(ngModel)]="patient.code" name="code" [disabled]="isDisabled('code')" />
+            </div>
+            <div class="col-4 col-md-2">
+              <label class="form-label">Age <span class="text-danger">*</span></label>
+              <input class="form-control" type="number" [(ngModel)]="patient.age" name="age" required [disabled]="isDisabled('age')" />
+              <div *ngIf="fieldErrors?.age" class="invalid-feedback d-block">{{fieldErrors.age}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Sex <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="patient.sex" name="sex" required [disabled]="isDisabled('sex')">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        <!-- Admission & Discharge -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Admission & Discharge</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label">In Date <span class="text-danger">*</span></label>
+              <input class="form-control" type="date" [(ngModel)]="patient.inDate" name="inDate" required [disabled]="isDisabled('inDate')" />
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">In Time <span class="text-danger">*</span></label>
+              <div class="d-flex gap-1">
+                <select class="form-select" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+                  <option value="">HH</option>
+                  <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+                  <option value="">MM</option>
+                  <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+                  <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
+                </select>
+              </div>
+              <div *ngIf="fieldErrors?.inTime" class="invalid-feedback d-block">{{fieldErrors.inTime}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Discharge Date</label>
+              <input class="form-control" type="date" [(ngModel)]="patient.dischargeDate" name="dischargeDate" [disabled]="isDisabled('dischargeDate')" />
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Discharge Time</label>
+              <div class="d-flex gap-1">
+                <select class="form-select" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+                  <option value="">HH</option>
+                  <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+                  <option value="">MM</option>
+                  <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+                  <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
+                </select>
+              </div>
+              <div *ngIf="fieldErrors?.dischargeTime" class="invalid-feedback d-block">{{fieldErrors.dischargeTime}}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Room & Bed -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Room & Bed</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label">Room Type <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="patient.roomType" name="roomType" required [disabled]="isDisabled('roomType')">
+                <option value="Ward">Ward</option>
+                <option value="ICU">ICU</option>
+                <option value="Cabin">Cabin</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Room No</label>
+              <input class="form-control" [(ngModel)]="patient.roomNo" name="roomNo" [disabled]="isDisabled('roomNo')" />
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Bed No <span class="text-danger">*</span></label>
+              <input class="form-control" [(ngModel)]="patient.bed" name="bed" required [disabled]="isDisabled('bed')" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Diet -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Diet</h6></div>
+          <div class="row g-3 align-items-start">
+            <div class="col-12 col-sm-5 col-md-4 col-lg-3">
+              <label class="form-label">Diet Type</label>
+              <select class="form-select" [(ngModel)]="patient.diet" name="diet" [disabled]="isDisabled('diet')">
+                <option [ngValue]="undefined">-- select --</option>
+                <option *ngFor="let d of dietOptions" [value]="d.name">{{d.name}}</option>
+              </select>
+            </div>
+            <div class="col-12 col-sm-7 col-md-8 col-lg-9">
+              <label class="form-label">Diet Note</label>
+              <textarea class="form-control" rows="2" placeholder="Optional notes or restrictions" [(ngModel)]="patient.dietNote" name="dietNote" [disabled]="isDisabled('dietNote')"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Status</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-4">
+              <label class="form-label">Patient Status <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="patient.status" name="status" required [disabled]="isDisabled('status')">
+                <option value="in_patient">In Patient</option>
+                <option value="discharged">Discharged</option>
+                <option value="outpatient">Outpatient</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Transaction Type <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="patient.transactionType" name="transactionType" required [disabled]="isDisabled('transactionType')">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="insurance">Insurance</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Other -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Other</h6></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Feedback</label>
+              <textarea class="form-control" rows="2" [(ngModel)]="patient.feedback" name="feedback" [disabled]="isDisabled('feedback')"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-primary" type="submit" [disabled]="!canSubmit() || isSaving">
+            <span class="spinner-border spinner-border-sm me-1" *ngIf="isSaving" role="status" aria-hidden="true"></span>
+            Update
+          </button>
+        </div>
       </form>
+    </div>
+  </div>
+
+  <div *ngIf="patient" class="card">
+    <div class="card-header">Diet assignments</div>
+    <div class="card-body">
+      <div class="mb-2 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <label class="small text-muted mb-0">Show</label>
+          <select class="form-select form-select-sm" [(ngModel)]="filterDays" (change)="applyFilter()" [ngModelOptions]="{standalone: true}">
+            <option [ngValue]="'all'">All</option>
+            <option [ngValue]="7">Last 7 days</option>
+            <option [ngValue]="15">Last 15 days</option>
+            <option [ngValue]="30">Last 30 days</option>
+          </select>
+        </div>
+        <div class="small text-muted" *ngIf="filterDays!=='all'">Showing last {{filterDays}} day(s)</div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Diet</th>
+              <th>Note</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of filtered">
+              <td>{{a.date | date:'mediumDate'}}</td>
+              <td>
+                <span class="me-2">{{a.diet}}</span>
+                <span class="badge bg-secondary" *ngIf="a.status==='pending'">Pending</span>
+                <span class="badge bg-success" *ngIf="a.status==='delivered'">Delivered</span>
+                <span class="badge bg-danger" *ngIf="a.status==='cancelled'">Cancelled</span>
+              </td>
+              <td>{{a.note}}</td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-danger" *ngIf="a.status==='pending'" (click)="deleteAssignment(a)" [disabled]="!canEditPatient() || deleting[a._id]">
+                  <span class="spinner-border spinner-border-sm me-1" *ngIf="deleting[a._id]" role="status" aria-hidden="true"></span>
+                  Delete
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filtered?.length===0">
+              <td colspan="4" class="text-center text-muted">No assignments</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <hr class="my-4" />
+      <div class="mt-3" *ngIf="role !== 'dietician'">
+        <h6>Change diet</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-3">
+            <label class="form-label">Start date</label>
+            <input class="form-control" type="date" [(ngModel)]="changeDiet.startDate" name="chgStart" />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">End date</label>
+            <input class="form-control" type="date" [(ngModel)]="changeDiet.endDate" name="chgEnd" />
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label">New diet</label>
+            <select class="form-select" [(ngModel)]="changeDiet.newDiet" name="chgDiet">
+              <option [ngValue]="undefined">-- select --</option>
+              <option *ngFor="let d of dietOptions" [value]="d.name">{{d.name}}</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <input class="form-control" [(ngModel)]="changeDiet.note" name="chgNote" placeholder="Note (optional)" />
+          </div>
+          <div class="col-12 text-end">
+            <button class="btn btn-sm btn-warning" (click)="runChangeDiet()" [disabled]="!canEditPatient() || !changeDiet.startDate || !changeDiet.newDiet || changeDietLoading">
+              <span class="spinner-border spinner-border-sm me-1" *ngIf="changeDietLoading" role="status" aria-hidden="true"></span>
+              Change diet
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

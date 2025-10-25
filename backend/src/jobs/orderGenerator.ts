@@ -23,7 +23,7 @@ export default function setupAgenda(mongoConnString: string) {
       }
 
       // check if order already generated for this plan and date
-      const exists = await Order.findOne({ sourcePlanId: (plan as any)._id, date: dateOnly });
+      const exists = await Order.findOne({ sourcePlanId: (plan as any)._id, date: dateOnly, hospitalId: (plan as any).hospitalId });
       if (exists) continue;
 
       // pick dayIndex
@@ -38,13 +38,13 @@ export default function setupAgenda(mongoConnString: string) {
           const notes = typeof item === 'string' ? undefined : item?.notes;
           if (!id) continue;
           const menu = await MenuItem.findById(id).exec();
-          if (menu) items.push({ patientId: (plan as any).patientId, menuItemId: menu._id, quantity: 1, mealSlot: meal.slot, notes });
+          if (menu) items.push({ patientId: (plan as any).patientId, menuItemId: menu._id, quantity: 1, mealSlot: meal.slot, notes, unitPrice: (menu.price as number) || 0 });
         }
       }
 
       if (items.length === 0) continue;
 
-      await Order.create({ date: dateOnly, items, sourcePlanId: (plan as any)._id, notes: 'Generated from diet plan' });
+      await Order.create({ date: dateOnly, items, sourcePlanId: (plan as any)._id, notes: 'Generated from diet plan', hospitalId: (plan as any).hospitalId });
     }
   });
 

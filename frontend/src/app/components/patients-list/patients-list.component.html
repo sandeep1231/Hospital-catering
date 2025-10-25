@@ -2,15 +2,50 @@
   <div class="mb-3 d-flex justify-content-between align-items-center">
     <h4 class="mb-0">Patients</h4>
     <div>
-      <button class="btn btn-primary me-2" (click)="newPatient()">New Patient</button>
-      <a class="btn btn-outline-secondary" routerLink="/orders">Orders</a>
+      <button class="btn btn-primary me-2" (click)="newPatient()" *ngIf="role !== 'dietician'">New Patient</button>
     </div>
   </div>
 
-  <div class="mb-3">
-    <div class="input-group">
-      <input class="form-control" placeholder="Search by name, room, diet..." [(ngModel)]="q" (keyup.enter)="load()" />
-      <button class="btn btn-outline-secondary" (click)="load()">Search</button>
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+      <div class="col-12 col-lg-4">
+        <div class="input-group">
+          <input class="form-control" placeholder="Search by name or phone" [(ngModel)]="q" (keyup.enter)="load()" />
+          <button class="btn btn-outline-secondary" (click)="load()" title="Search" aria-label="Search">🔍</button>
+        </div>
+      </div>
+      <div class="col-6 col-lg-2">
+        <select class="form-select" [(ngModel)]="status" (change)="load()">
+          <option value="">All patients</option>
+          <option value="in_patient">In-patient</option>
+          <option value="discharged">Discharged</option>
+          <option value="outpatient">Outpatient</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <select class="form-select" [(ngModel)]="dietStatus" (change)="load()">
+          <option value="">All diet statuses</option>
+          <option value="pending">Diet: Pending</option>
+          <option value="delivered">Diet: Delivered</option>
+          <option value="cancelled">Diet: Cancelled</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <select class="form-select" [(ngModel)]="roomTypeFilter" (change)="onRoomTypeChange()">
+          <option value="">Room type</option>
+          <option *ngFor="let rt of roomTypes" [value]="rt">{{rt}}</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <select class="form-select" [(ngModel)]="roomNoFilter" (change)="load()">
+          <option value="">Room no</option>
+          <option *ngFor="let rn of roomNos" [value]="rn">{{rn}}</option>
+        </select>
+      </div>
+      <div class="col-12 col-lg-2 d-grid d-lg-block text-end">
+        <button class="btn btn-outline-secondary w-100 w-lg-auto" (click)="q=''; status=''; dietStatus=''; roomTypeFilter=''; roomNoFilter=''; load()">Reset</button>
+      </div>
     </div>
   </div>
 
@@ -18,16 +53,103 @@
 
   <div *ngIf="!loading && patients.length === 0" class="alert alert-light">No patients found</div>
 
-  <div class="row g-3">
-    <div class="col-12 col-md-6" *ngFor="let p of patients">
-      <div class="card" (click)="open(p)" style="cursor:pointer;">
-        <div class="card-body">
-          <div class="d-flex w-100 justify-content-between">
-            <h5 class="mb-1">{{p.name}}</h5>
-            <small>{{p.roomType}} - Bed: {{p.bed}}</small>
+  <!-- Desktop: table view -->
+  <div class="table-responsive d-none d-lg-block">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Room</th>
+          <th>Bed No.</th>
+          <th>Patient Type</th>
+          <th>Diet</th>
+          <th class="text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of patients">
+          <td>
+            {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}
+          </td>
+          <td>
+            <div class="fw-medium">{{p.name}}</div>
+            <div class="small text-muted">Age: {{p.age || '—'}}</div>
+          </td>
+          <td>{{p.phone || '—'}}</td>
+          <td>{{p.roomType || '—'}} / {{p.roomNo || '—'}}</td>
+          <td>{{p.bed || '—'}}</td>
+          <td>
+            <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
+            <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
+            <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
+          </td>
+          <td>
+            <ng-container [ngSwitch]="p.todayDietStatus">
+              <span *ngSwitchCase="'delivered'" class="badge bg-success">Delivered</span>
+              <span *ngSwitchCase="'pending'" class="badge bg-warning text-dark">Pending</span>
+              <span *ngSwitchCase="'cancelled'" class="badge bg-secondary">Cancelled</span>
+              <span *ngSwitchDefault class="text-muted">—</span>
+            </ng-container>
+            <div class="small text-muted" *ngIf="p.todayDiet">{{p.todayDiet}}</div>
+          </td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
+              View
+            </button>
+            <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile/Tablet: card view with icons -->
+  <div class="d-lg-none">
+    <div class="row g-2">
+      <div class="col-12" *ngFor="let p of patients">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold">{{p.name}}</div>
+                <div class="small text-muted">Room: {{p.roomType || '—'}} | Bed: {{p.bed || '—'}}</div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary" (click)="open(p)" title="Edit / View" aria-label="Edit">
+                  ✏️
+                </button>
+                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete" aria-label="Delete">
+                  🗑️
+                </button>
+              </div>
+            </div>
+            <div class="mt-2 small">
+              <span class="me-2"><strong>Diet:</strong> {{p.diet || '—'}}</span>
+              <span class="me-2"><strong>Patient:</strong>
+                <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
+                <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
+                <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
+              </span>
+            </div>
+            <div class="small mt-1">
+              <strong>Today:</strong>
+              <ng-container [ngSwitch]="p.todayDietStatus">
+                <span *ngSwitchCase="'delivered'" class="badge bg-success">Delivered</span>
+                <span *ngSwitchCase="'pending'" class="badge bg-warning text-dark">Pending</span>
+                <span *ngSwitchCase="'cancelled'" class="badge bg-secondary">Cancelled</span>
+                <span *ngSwitchDefault class="text-muted">—</span>
+              </ng-container>
+              <span class="text-muted ms-1" *ngIf="p.todayDiet">({{p.todayDiet}})</span>
+            </div>
+            <div class="small text-muted mt-1">
+              <span class="me-2"><strong>Phone:</strong> {{p.phone || '—'}}</span>
+              <span><strong>Code:</strong> {{p.code || '—'}}</span>
+            </div>
           </div>
-          <p class="mb-1">{{p.diet}} — {{p.status}}</p>
-          <small>Phone: {{p.phone || '—'}} | Age: {{p.age || '—'}}</small>
         </div>
       </div>
     </div>

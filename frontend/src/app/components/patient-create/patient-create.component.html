@@ -1,110 +1,195 @@
-<div class="login-hero">
-  <div class="me-auto">
-    <h1>Create Patient</h1>
-    <p class="lead">Enter patient details</p>
+<div class="container py-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h3 class="mb-0">Create Patient</h3>
+  <div class="text-muted">Enter patient details below <span class="ms-2 small">(<span class="text-danger">*</span> required)</span></div>
+    </div>
+    <div>
+      <button class="btn btn-outline-secondary" type="button" (click)="back()">Back to Patients</button>
+    </div>
   </div>
 
-  <div class="card login-card">
+  <div class="card shadow-sm">
     <div class="card-body">
       <div *ngIf="serverErrors?.length" class="alert alert-danger">
         <ul class="mb-0"><li *ngFor="let e of serverErrors">{{e.message || e}}</li></ul>
       </div>
-      <form (submit)="save($event)">
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label">Name</label>
-            <input class="form-control" [class.is-invalid]="fieldErrors?.name" [(ngModel)]="model.name" name="name" required />
-            <div *ngIf="fieldErrors?.name" class="invalid-feedback d-block">{{fieldErrors.name}}</div>
-          </div>
 
-          <div class="col-12 col-md-6">
-            <label class="form-label">Phone</label>
-            <input class="form-control" [class.is-invalid]="fieldErrors?.phone" [(ngModel)]="model.phone" name="phone" />
-            <div *ngIf="fieldErrors?.phone" class="invalid-feedback d-block">{{fieldErrors.phone}}</div>
+      <form (submit)="save($event)" novalidate>
+        <!-- Identity & Contact -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Identity & Contact</h6></div>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Name <span class="text-danger">*</span></label>
+              <input class="form-control" placeholder="Full name" [class.is-invalid]="fieldErrors?.name" [(ngModel)]="model.name" name="name" required />
+              <div *ngIf="fieldErrors?.name" class="invalid-feedback d-block">{{fieldErrors.name}}</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Phone <span class="text-danger">*</span></label>
+              <input class="form-control" placeholder="e.g. +91 98765 43210" [class.is-invalid]="fieldErrors?.phone" [(ngModel)]="model.phone" name="phone" required />
+              <div *ngIf="fieldErrors?.phone" class="invalid-feedback d-block">{{fieldErrors.phone}}</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Patient Code</label>
+              <input class="form-control" placeholder="Optional unique code" [(ngModel)]="model.code" name="code" />
+              <div class="form-text">Optional. If provided, must be unique.</div>
+              <div *ngIf="fieldErrors?.code" class="invalid-feedback d-block">{{fieldErrors.code}}</div>
+            </div>
+            <div class="col-4 col-md-2">
+              <label class="form-label">Age <span class="text-danger">*</span></label>
+              <input class="form-control" type="number" min="0" max="150" [(ngModel)]="model.age" name="age" required />
+              <div *ngIf="fieldErrors?.age" class="invalid-feedback d-block">{{fieldErrors.age}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Sex <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="model.sex" name="sex" required>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
+        </div>
 
-          <div class="col-6 col-md-3">
-            <label class="form-label">In Date</label>
-            <input class="form-control" type="date" [(ngModel)]="model.inDate" name="inDate" />
+        <!-- Admission & Discharge -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Admission & Discharge</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label">In Date <span class="text-danger">*</span></label>
+              <input class="form-control" type="date" [(ngModel)]="model.inDate" name="inDate" required />
+              <div *ngIf="fieldErrors?.inDate" class="invalid-feedback d-block">{{fieldErrors.inDate}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">In Time <span class="text-danger">*</span></label>
+              <div class="d-flex gap-1">
+                <select class="form-select" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}">
+                  <option value="">HH</option>
+                  <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}">
+                  <option value="">MM</option>
+                  <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}">
+                  <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
+                </select>
+              </div>
+              <div *ngIf="fieldErrors?.inTime" class="invalid-feedback d-block">{{fieldErrors.inTime}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Discharge Date</label>
+              <input class="form-control" type="date" [(ngModel)]="model.dischargeDate" name="dischargeDate" />
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Discharge Time</label>
+              <div class="d-flex gap-1">
+                <select class="form-select" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}">
+                  <option value="">HH</option>
+                  <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}">
+                  <option value="">MM</option>
+                  <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
+                </select>
+                <select class="form-select" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}">
+                  <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
+                </select>
+              </div>
+              <div *ngIf="fieldErrors?.dischargeTime" class="invalid-feedback d-block">{{fieldErrors.dischargeTime}}</div>
+            </div>
           </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label">In Time</label>
-            <input class="form-control" type="time" [(ngModel)]="model.inTime" name="inTime" />
-          </div>
+        </div>
 
-          <div class="col-6 col-md-3">
-            <label class="form-label">Room Type</label>
-            <select class="form-select" [(ngModel)]="model.roomType" name="roomType">
-              <option value="Ward">Ward</option>
-              <option value="ICU">ICU</option>
-              <option value="Cabin">Cabin</option>
-              <option value="Other">Other</option>
-            </select>
+        <!-- Room & Bed -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Room & Bed</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <label class="form-label">Room Type <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="model.roomType" name="roomType" required>
+                <option value="Ward">Ward</option>
+                <option value="ICU">ICU</option>
+                <option value="Cabin">Cabin</option>
+                <option value="Other">Other</option>
+              </select>
+              <div *ngIf="fieldErrors?.roomType" class="invalid-feedback d-block">{{fieldErrors.roomType}}</div>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Room No</label>
+              <input class="form-control" placeholder="e.g. 203" [(ngModel)]="model.roomNo" name="roomNo" />
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Bed No <span class="text-danger">*</span></label>
+              <input class="form-control" placeholder="e.g. B-12" [(ngModel)]="model.bed" name="bed" required />
+              <div *ngIf="fieldErrors?.bed" class="invalid-feedback d-block">{{fieldErrors.bed}}</div>
+            </div>
           </div>
-          <div class="col-6 col-md-3">
-            <label class="form-label">Bed No</label>
-            <input class="form-control" [(ngModel)]="model.bed" name="bed" />
-          </div>
+        </div>
 
-          <div class="col-6 col-md-4">
-            <label class="form-label">Diet</label>
-            <input class="form-control" [(ngModel)]="model.diet" name="diet" />
+        <!-- Diet -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Diet</h6></div>
+          <div class="row g-3 align-items-start">
+            <div class="col-12 col-sm-5 col-md-4 col-lg-3">
+              <label class="form-label">Diet Type</label>
+              <ng-container *ngIf="dietsLoading">
+                <div class="form-control">Loading diets...</div>
+              </ng-container>
+              <ng-container *ngIf="!dietsLoading">
+                <select class="form-select" [(ngModel)]="model.diet" name="diet">
+                  <option [ngValue]="undefined">-- select --</option>
+                  <option *ngFor="let d of dietOptions" [value]="d.name">{{d.name}}</option>
+                </select>
+              </ng-container>
+              <div *ngIf="dietLoadError" class="small text-danger mt-1">Failed to load diets: {{dietLoadError}} <button class="btn btn-link btn-sm p-0" (click)="loadDiets()">Retry</button></div>
+              <div *ngIf="fieldErrors?.diet" class="invalid-feedback d-block">{{fieldErrors.diet}}</div>
+            </div>
+            <div class="col-12 col-sm-7 col-md-8 col-lg-9">
+              <label class="form-label">Diet Note</label>
+              <textarea class="form-control" rows="2" placeholder="Optional notes or restrictions" [(ngModel)]="model.dietNote" name="dietNote"></textarea>
+            </div>
           </div>
-          <div class="col-6 col-md-4">
-            <label class="form-label">Status</label>
-            <select class="form-select" [(ngModel)]="model.status" name="status">
-              <option value="in_patient">In Patient</option>
-              <option value="discharged">Discharged</option>
-              <option value="outpatient">Outpatient</option>
-            </select>
-          </div>
-          <div class="col-6 col-md-4">
-            <label class="form-label">Transaction Type</label>
-            <select class="form-select" [(ngModel)]="model.transactionType" name="transactionType">
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="insurance">Insurance</option>
-            </select>
-          </div>
+        </div>
 
-          <div class="col-4 col-md-2">
-            <label class="form-label">Age</label>
-            <input class="form-control" type="number" [(ngModel)]="model.age" name="age" />
-            <div *ngIf="fieldErrors?.age" class="invalid-feedback d-block">{{fieldErrors.age}}</div>
+        <!-- Status -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Status</h6></div>
+          <div class="row g-3">
+            <div class="col-6 col-md-4">
+              <label class="form-label">Patient Status <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="model.status" name="status" required>
+                <option value="in_patient">In Patient</option>
+                <option value="discharged">Discharged</option>
+                <option value="outpatient">Outpatient</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Transaction Type <span class="text-danger">*</span></label>
+              <select class="form-select" [(ngModel)]="model.transactionType" name="transactionType" required>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="insurance">Insurance</option>
+              </select>
+            </div>
           </div>
-          <div class="col-4 col-md-2">
-            <label class="form-label">Sex</label>
-            <select class="form-select" [(ngModel)]="model.sex" name="sex">
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="col-4 col-md-4">
-            <label class="form-label">Total Bill</label>
-            <input class="form-control" type="number" [(ngModel)]="model.totalBill" name="totalBill" />
-            <div *ngIf="fieldErrors?.totalBill" class="invalid-feedback d-block">{{fieldErrors.totalBill}}</div>
-          </div>
+        </div>
 
-          <div class="col-6 col-md-4">
-            <label class="form-label">Daily Bill</label>
-            <input class="form-control" type="number" [(ngModel)]="model.dailyBill" name="dailyBill" />
-            <div *ngIf="fieldErrors?.dailyBill" class="invalid-feedback d-block">{{fieldErrors.dailyBill}}</div>
+        <!-- Other -->
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex align-items-center mb-2"><h6 class="mb-0">Other</h6></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Feedback</label>
+              <textarea class="form-control" rows="2" placeholder="Any feedback" [(ngModel)]="model.feedback" name="feedback"></textarea>
+            </div>
           </div>
-          <div class="col-6 col-md-8">
-            <label class="form-label">Recurring Details (JSON)</label>
-            <input class="form-control" [(ngModel)]="model.recurringDetails" name="recurringDetails" />
-          </div>
+        </div>
 
-          <div class="col-12">
-            <label class="form-label">Feedback</label>
-            <textarea class="form-control" rows="2" [(ngModel)]="model.feedback" name="feedback"></textarea>
-          </div>
-
-          <div class="col-12 text-end">
-            <button class="btn btn-secondary me-2" type="button" (click)="back()">Cancel</button>
-            <button class="btn btn-primary" type="submit">Create Patient</button>
-          </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary" type="button" (click)="back()">Cancel</button>
+          <button class="btn btn-primary" type="submit" [disabled]="saving">{{ saving ? 'Saving…' : 'Create' }}</button>
         </div>
       </form>
     </div>

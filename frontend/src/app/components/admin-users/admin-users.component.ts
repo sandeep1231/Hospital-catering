@@ -10,8 +10,8 @@ import { ToastService } from '../../services/toast.service';
 export class AdminUsersComponent implements OnInit {
   users: any[] = [];
   q = '';
-  form = { name: '', email: '', password: '', role: 'user' };
-  roles = ['admin','dietician','vendor','kitchen','delivery','user'];
+  form = { name: '', email: '', password: '', role: 'dietician' };
+  roles = ['admin','diet-supervisor','dietician'];
   loading = false;
 
   constructor(private api: ApiService, private toast: ToastService) {}
@@ -26,7 +26,7 @@ export class AdminUsersComponent implements OnInit {
   create(e: Event) {
     e.preventDefault();
     if (!this.form.name || !this.form.email || !this.form.password) { this.toast.error('All fields are required'); return; }
-    this.api.post('/users', this.form).subscribe((res:any)=> { this.toast.success('User created'); this.form = { name: '', email: '', password: '', role: 'user' }; this.load(); }, err => { this.toast.error(err?.error?.message || 'Create failed'); });
+    this.api.post('/users', this.form).subscribe((res:any)=> { this.toast.success('User created'); this.form = { name: '', email: '', password: '', role: 'dietician' }; this.load(); }, err => { this.toast.error(err?.error?.message || 'Create failed'); });
   }
 
   update(u: any) {

@@ -1,0 +1,41 @@
+<div class="container mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Manage Diets</h4>
+    <div>
+      <button class="btn btn-sm btn-primary me-2" (click)="newDiet()">New Diet</button>
+      <button class="btn btn-sm btn-secondary" (click)="load()">Refresh</button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="text-center py-3">Loading...</div>
+
+  <div *ngIf="!loading">
+    <table class="table table-sm">
+      <thead><tr><th>Name</th><th>Default Price</th><th>Active</th><th></th></tr></thead>
+      <tbody>
+        <tr *ngFor="let d of diets">
+          <td>{{d.name}}</td>
+          <td>{{d.defaultPrice}}</td>
+          <td>{{d.active ? 'Yes' : 'No'}}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary me-1" (click)="edit(d)">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" (click)="remove(d)">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="editing" class="card mt-3 p-3">
+      <h6>{{editing._id ? 'Edit' : 'New'}} Diet</h6>
+      <div class="row g-2">
+        <div class="col-6"><input class="form-control" [(ngModel)]="editing.name" placeholder="Name" /></div>
+        <div class="col-3"><input class="form-control" type="number" [(ngModel)]="editing.defaultPrice" placeholder="Default price" /></div>
+        <div class="col-2"><select class="form-select" [(ngModel)]="editing.active"><option [ngValue]="true">Active</option><option [ngValue]="false">Inactive</option></select></div>
+        <div class="col-12 text-end mt-2">
+          <button class="btn btn-sm btn-secondary me-2" (click)="cancel()">Cancel</button>
+          <button class="btn btn-sm btn-primary" (click)="save()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

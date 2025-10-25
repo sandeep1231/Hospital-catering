@@ -5,7 +5,7 @@ body { padding-top: 0; background: #f8f9fa; }
 
 /* hero and form centering */
 .login-hero { display:flex; justify-content:center; align-items:flex-start; gap:3rem; padding:3rem 0; }
-.login-card { width:420px; }
+.login-card { width:680px; max-width: 92vw; }
 
 footer { box-shadow: 0 -1px 4px rgba(0,0,0,0.04); }
 footer .small { opacity: 0.85; }
@@ -13,4 +13,30 @@ footer .small { opacity: 0.85; }
 @media (max-width: 768px) {
   .login-hero { flex-direction:column; align-items:center; }
   .login-card { width:100%; }
+}
+
+/* Printed page setup: reduce margins and fill width */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+/* Print: show only the business range table */
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; }
+  body * { visibility: hidden !important; }
+  #businessRangeTable, #businessRangeTable * { visibility: visible !important; }
+  #businessRangeTable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: none !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    font-size: 12px;
+  }
+  #businessRangeTable th, #businessRangeTable td {
+    padding: 6px 8px;
+  }
 }

@@ -14,10 +14,10 @@ import { Router } from '@angular/router';
       <div class="collapse navbar-collapse" [class.show]="navOpen" id="nav">
         <ul class="navbar-nav me-auto" *ngIf="api.isLoggedIn()">
           <li class="nav-item"><a class="nav-link" routerLink="/patients" routerLinkActive="active" (click)="closeNav()">Patients</a></li>
-          <li class="nav-item"><a class="nav-link" routerLink="/orders" routerLinkActive="active" (click)="closeNav()">Orders</a></li>
-          <li class="nav-item"><a class="nav-link" routerLink="/diet-plans" routerLinkActive="active" (click)="closeNav()">Diet Plans</a></li>
+          <li class="nav-item" *ngIf="isDietSupervisorOrAdmin"><a class="nav-link" routerLink="/diet-supervisor" routerLinkActive="active" (click)="closeNav()">Diet Supervisor</a></li>
+          <li class="nav-item" *ngIf="isAdmin"><a class="nav-link" routerLink="/admin/diets" routerLinkActive="active" (click)="closeNav()">Diets</a></li>
           <li class="nav-item" *ngIf="isAdmin"><a class="nav-link" routerLink="/admin/users" routerLinkActive="active" (click)="closeNav()">Users</a></li>
-          <li class="nav-item" *ngIf="isAdmin"><a class="nav-link" routerLink="/admin/invite" routerLinkActive="active" (click)="closeNav()">Invite</a></li>
+          <li class="nav-item" *ngIf="isReports"><a class="nav-link" routerLink="/reports" routerLinkActive="active" (click)="closeNav()">Reports</a></li>
         </ul>
         <div class="d-flex align-items-center gap-2 ms-auto">
           <ng-container *ngIf="api.isLoggedIn(); else loggedOut">
@@ -54,6 +54,8 @@ export class AppComponent {
   navOpen = false;
   constructor(public api: ApiService, private router: Router) {}
   get isAdmin() { return this.api.getUserRole() === 'admin'; }
+  get isReports() { const r = this.api.getUserRole(); return r === 'admin'; }
+  get isDietSupervisorOrAdmin() { const r = this.api.getUserRole(); return r === 'admin' || r === 'diet-supervisor' || r === 'dietician'; }
   closeNav() { this.navOpen = false; }
   logout() { this.api.logout(); this.closeNav(); this.router.navigate(['/login']); }
 }

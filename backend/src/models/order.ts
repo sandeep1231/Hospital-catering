@@ -5,7 +5,9 @@ export interface IOrderItem {
   menuItemId: mongoose.Types.ObjectId;
   quantity: number;
   notes?: string;
-  mealSlot?: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'; // New: meal slot for breakfast/lunch/dinner/snack/other
+  mealSlot?: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  unitPrice?: number; // snapshot price at the time of order
+  deliveryStatus?: 'pending' | 'delivered';
 }
 
 export interface IOrder extends Document {
@@ -16,6 +18,7 @@ export interface IOrder extends Document {
   assignedTo?: mongoose.Types.ObjectId;
   notes?: string;
   sourcePlanId?: mongoose.Types.ObjectId;
+  hospitalId?: mongoose.Types.ObjectId;
 }
 
 const OrderItemSchema: Schema = new Schema({
@@ -23,7 +26,9 @@ const OrderItemSchema: Schema = new Schema({
   menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem' },
   quantity: { type: Number, default: 1 },
   notes: { type: String },
-  mealSlot: { type: String, enum: ['breakfast','lunch','dinner','snack','other'] }
+  mealSlot: { type: String, enum: ['breakfast','lunch','dinner','snack','other'] },
+  unitPrice: { type: Number, default: 0 },
+  deliveryStatus: { type: String, enum: ['pending','delivered'], default: 'pending' }
 });
 
 const OrderSchema: Schema = new Schema({
@@ -33,9 +38,11 @@ const OrderSchema: Schema = new Schema({
   deliveryStatus: { type: String, default: 'pending' },
   assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
   notes: { type: String },
-  sourcePlanId: { type: Schema.Types.ObjectId, ref: 'DietPlan' }
+  sourcePlanId: { type: Schema.Types.ObjectId, ref: 'DietPlan' },
+  hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' }
 }, { timestamps: true });
 
-OrderSchema.index({ date: 1 });
+// indexes
+OrderSchema.index({ date: 1, hospitalId: 1 });
 
 export default mongoose.model<IOrder>('Order', OrderSchema);

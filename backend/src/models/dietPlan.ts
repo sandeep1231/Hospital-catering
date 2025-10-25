@@ -22,6 +22,7 @@ export interface IDietPlan extends Document {
   recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
   days: IDietPlanDay[];
   notes?: string;
+  hospitalId?: mongoose.Types.ObjectId;
 }
 
 const DietPlanDaySchema: Schema = new Schema({
@@ -40,7 +41,8 @@ const DietPlanSchema: Schema = new Schema({
   endDate: { type: Date },
   recurrence: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
   days: [DietPlanDaySchema],
-  notes: { type: String }
+  notes: { type: String },
+  hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' }
 }, { timestamps: true });
 
 export default mongoose.model<IDietPlan>('DietPlan', DietPlanSchema);

@@ -1,0 +1,87 @@
+<div class="container mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Diet Supervisor</h4>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-primary" (click)="generateToday()" [disabled]="loading">Generate today's list</button>
+      <button class="btn btn-sm btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" [(ngModel)]="date" name="filterDate" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Room Type</label>
+          <select class="form-select" [(ngModel)]="roomType" name="filterRoomType">
+            <option value="">All</option>
+            <option value="Ward">Ward</option>
+            <option value="ICU">ICU</option>
+            <option value="Cabin">Cabin</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Room No</label>
+          <input class="form-control" [(ngModel)]="roomNo" name="filterRoomNo" />
+        </div>
+        <div class="col-6 col-md-auto">
+          <button class="btn btn-sm btn-primary w-100" (click)="load()" [disabled]="loading">Apply</button>
+        </div>
+        <div class="col-12 col-md-3 ms-md-4">
+          <label class="form-label">Search</label>
+          <input class="form-control" [(ngModel)]="q" name="filterQ" (input)="applyQuickFilter()" placeholder="Patient name or mobile" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="text-center py-4">Loading...</div>
+
+  <div *ngIf="!loading">
+    <div *ngIf="assignments.length === 0" class="alert alert-light">No assignments for today</div>
+    <div class="table-responsive" *ngIf="assignments.length">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th class="w-date">Date</th>
+            <th class="w-patient">Patient</th>
+            <th class="w-mobile">Mobile</th>
+            <th class="w-room">Room</th>
+            <th class="w-bed">Bed</th>
+            <th class="w-diet">Diet</th>
+            <th class="w-note">Note</th>
+            <th class="w-status">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of view">
+            <td>{{a.date | date:'dd-MM-yyyy'}}</td>
+            <td>{{a.patientName}}</td>
+            <td>{{a.phone || '—'}}</td>
+            <td>{{(a.roomType || '—') + ' / ' + (a.roomNo || '—')}}</td>
+            <td>{{a.bed || '—'}}</td>
+            <td>{{a.diet}}</td>
+            <td>{{a.note}}</td>
+            <td>
+              <div class="d-flex align-items-center" style="gap: .25rem;">
+                <div [ngClass]="{
+                  'text-secondary': a.status==='pending',
+                  'text-success': a.status==='delivered',
+                  'text-danger': a.status==='cancelled'
+                }">{{a.status}}</div>
+                <button class="btn btn-sm btn-outline-success" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
+                  <span class="spinner-border spinner-border-sm me-1" *ngIf="delivering[a._id || a.id]" role="status" aria-hidden="true"></span>
+                  Deliver
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
