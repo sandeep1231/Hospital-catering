@@ -32,7 +32,8 @@ jobs:
           cache-dependency-path: frontend/package.json
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci || npm ci --legacy-peer-deps
 
       - name: Build Angular (Project Page)
         # Adjust base-href below if you deploy to a user/org root or a custom domain
