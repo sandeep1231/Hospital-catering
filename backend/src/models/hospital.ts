@@ -10,4 +10,7 @@ const HospitalSchema: Schema = new Schema({
   address: { type: String }
 }, { timestamps: true });
 
+// Index for efficient name lookups and sorting
+HospitalSchema.index({ name: 1 });
+
 export default mongoose.model<IHospital>('Hospital', HospitalSchema);

@@ -7,9 +7,22 @@ const router = Router();
 
 // Public: list hospitals for login/register selection
 router.get('/', async (req: Request, res: Response) => {
-  const q = (req.query.q as string || '').trim();
-  const cond: any = q ? { name: { $regex: q, $options: 'i' } } : {};
-  const hospitals = await Hospital.find(cond).sort({ name: 1 }).lean();
+  // Optional search query; anchor to start to help index usage and escape regex specials
+  const raw = (req.query.q as string || '').trim();
+  const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cond: any = raw
+    ? { name: { $regex: `^${escaped}`, $options: 'i' } }
+    : {};
+
+  // Only return minimal fields, sort by name (can use index), and cap result size
+  const hospitals = await Hospital.find(cond)
+    .select('name address')
+    .sort({ name: 1 })
+    .limit(50)
+    .lean();
+
+  // Cache for 5 minutes; data changes rarely and this endpoint is public
+  res.set('Cache-Control', 'public, max-age=300');
   res.json(hospitals);
 });
 

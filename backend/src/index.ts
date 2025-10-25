@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import compression from 'compression';
 import authRoutes from './routes/auth';
 import patientRoutes from './routes/patients';
 import userRoutes from './routes/users';
@@ -10,11 +11,13 @@ import { seedDemo } from './utils/seed';
 import reportRoutes from './routes/reports';
 import dietAssignmentRoutes from './routes/dietAssignments';
 import dietTypeRoutes from './routes/dietTypes';
+import Hospital from './models/hospital';
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(compression());
+app.use(cors({ origin: true, credentials: true, maxAge: 86400 }));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -37,6 +40,13 @@ if (!mongoUri) {
 mongoose.connect(mongoUri)
   .then(async () => {
     console.log('Connected to MongoDB');
+    // Ensure indexes exist (notably Hospitals name index for faster search/sort)
+    try {
+      await Hospital.syncIndexes();
+      console.log('Hospital indexes synced');
+    } catch (e) {
+      console.warn('Failed to sync indexes:', e);
+    }
     await seedDemo();
     app.listen(PORT, () => console.log(`Server started on ${PORT}`));
   })
