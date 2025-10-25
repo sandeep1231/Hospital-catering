@@ -30,7 +30,11 @@ jobs:
 
       - name: Build Angular (Project Page)
         # Adjust base-href below if you deploy to a user/org root or a custom domain
-        run: npm run build -- --configuration production --base-href "/Hospital-catering/"
+        # Note: No explicit configuration is defined in angular.json, so we omit --configuration
+        run: npm run build -- --base-href "/Hospital-catering/"
+
+      - name: Add SPA fallback (404.html)
+        run: cp dist/catering-frontend/index.html dist/catering-frontend/404.html
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
