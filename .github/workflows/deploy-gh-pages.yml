@@ -6,10 +6,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,16 +36,23 @@ jobs:
 
       - name: Build Angular (Project Page)
         # Adjust base-href below if you deploy to a user/org root or a custom domain
-        # Note: No explicit configuration is defined in angular.json, so we omit --configuration
         run: npm run build -- --base-href "/Hospital-catering/"
 
       - name: Add SPA fallback (404.html)
         run: cp dist/catering-frontend/index.html dist/catering-frontend/404.html
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: frontend/dist/catering-frontend
-          clean: true
-          # If your Angular build outputs into a named project subfolder, set 'folder' to that full path (e.g. frontend/dist/catering-frontend)
+          path: frontend/dist/catering-frontend
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
