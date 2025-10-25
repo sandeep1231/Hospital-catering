@@ -1,7 +1,7 @@
 import Patient from '../models/patient';
 import User from '../models/user';
 import Hospital from '../models/hospital';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export async function seedDemo() {
   // ensure default hospital exists
