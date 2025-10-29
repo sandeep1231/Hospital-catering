@@ -17,6 +17,14 @@ export class DietSupervisorComponent implements OnInit {
   q: string = '';
   delivering: Record<string, boolean> = {};
   view: any[] = [];
+  // pagination
+  page: number = 1;
+  pageSize: number = 20;
+  // Diet totals modal
+  showTotals = false;
+  dietTotals: Array<{ name: string; count: number }> = [];
+  // Live badges under toolbar
+  badgeTotals: Array<{ name: string; count: number }> = [];
   constructor(private api: ApiService, private toast: ToastService) {}
   ngOnInit(): void {
     // set local today as default date (avoid UTC shift)
@@ -35,8 +43,9 @@ export class DietSupervisorComponent implements OnInit {
     if (this.roomType) params.roomType = this.roomType;
     if (this.roomNo) params.roomNo = this.roomNo;
     this.api.get('/reports/diet-supervisor/today', params).subscribe((res:any) => {
-      this.assignments = res;
-      this.applyQuickFilter();
+  this.assignments = res;
+  this.recomputeTotals();
+  this.applyQuickFilter();
       this.loading = false;
     }, err => { console.error(err); this.toast.error('Failed to load list'); this.loading = false; });
   }
@@ -58,12 +67,13 @@ export class DietSupervisorComponent implements OnInit {
 
   applyQuickFilter() {
     const term = (this.q || '').toLowerCase().trim();
-    if (!term) { this.view = this.assignments.slice(); return; }
+    if (!term) { this.view = this.assignments.slice(); this.page = 1; return; }
     this.view = this.assignments.filter(a => {
       const name = String(a.patientName || '').toLowerCase();
       const phone = String(a.phone || '').toLowerCase();
       return name.includes(term) || phone.includes(term);
     });
+    this.page = 1;
   }
 
   generateToday() {
@@ -77,5 +87,59 @@ export class DietSupervisorComponent implements OnInit {
       this.toast.error('Failed to generate');
       this.loading = false;
     });
+  }
+
+  // Build totals by diet (case-insensitive), based on the currently loaded list
+  private buildDietTotals() {
+    const map: Record<string, { name: string; count: number }> = {};
+    for (const a of this.assignments) {
+      const raw = String(a.diet || 'Unknown').trim();
+      const key = raw.toLowerCase();
+      const display = raw ? this.titleCase(raw) : 'Unknown';
+      if (!map[key]) map[key] = { name: display, count: 0 };
+      map[key].count += 1;
+    }
+    this.dietTotals = Object.values(map).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }
+
+  // Recompute badge totals (same as dietTotals but stored separately so modal sorting doesn't interfere)
+  private recomputeTotals() {
+    const map: Record<string, { name: string; count: number }> = {};
+    for (const a of this.assignments) {
+      const raw = String(a.diet || 'Unknown').trim();
+      const key = raw.toLowerCase();
+      const display = raw ? this.titleCase(raw) : 'Unknown';
+      if (!map[key]) map[key] = { name: display, count: 0 };
+      map[key].count += 1;
+    }
+    this.badgeTotals = Object.values(map).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }
+
+  private titleCase(s: string) {
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  openTotals() {
+    // Ensure we are showing totals for the currently selected date (already loaded into assignments)
+    this.buildDietTotals();
+    this.showTotals = true;
+  }
+
+  closeTotals() { this.showTotals = false; }
+
+  // pagination helpers
+  get total(): number { return this.view.length; }
+  totalPages(): number { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
+  canPrev(): boolean { return this.page > 1; }
+  canNext(): boolean { return this.page < this.totalPages(); }
+  prevPage() { if (this.canPrev()) this.page--; }
+  nextPage() { if (this.canNext()) this.page++; }
+  onPageSizeChange(n: any) {
+    const val = parseInt(String(n), 10);
+    if (!Number.isNaN(val) && val > 0 && val <= 100) { this.pageSize = val; this.page = 1; }
+  }
+  paged(): any[] {
+    const start = (this.page - 1) * this.pageSize;
+    return this.view.slice(start, start + this.pageSize);
   }
 }

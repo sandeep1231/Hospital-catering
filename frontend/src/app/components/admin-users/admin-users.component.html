@@ -37,32 +37,34 @@
   </div>
 
   <div class="col-12 col-lg-7">
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <h5 class="mb-0 me-auto">Users ({{users.length}})</h5>
-          <div *ngIf="loading" class="small text-muted">Loading...</div>
-        </div>
-        <div class="table-responsive">
-          <table class="table align-middle">
+    <div class="d-flex align-items-center mb-2">
+      <h5 class="mb-0 me-auto">Users ({{users.length}})</h5>
+      <div *ngIf="loading" class="small text-muted">Loading...</div>
+    </div>
+
+    <!-- Desktop: table in card with sticky header -->
+    <div class="card d-none d-lg-block">
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table align-middle mb-0 table-sticky">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th style="width:220px">Actions</th>
+                <th style="width:240px">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let u of users">
-                <td><input class="form-control form-control-sm" [(ngModel)]="u.name" /></td>
-                <td>{{u.email}}</td>
-                <td>
+              <tr *ngFor="let u of paged(users)">
+                <td class="w-25"><input class="form-control form-control-sm" [(ngModel)]="u.name" /></td>
+                <td class="text-break">{{u.email}}</td>
+                <td class="w-25">
                   <select class="form-select form-select-sm" [(ngModel)]="u.role">
                     <option *ngFor="let r of roles" [value]="r">{{r}}</option>
                   </select>
                 </td>
-                <td>
+                <td class="w-25">
                   <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text">New pass</span>
                     <input class="form-control" [(ngModel)]="u._newPassword" placeholder="leave blank" />
@@ -73,8 +75,62 @@
                   </div>
                 </td>
               </tr>
+              <tr *ngIf="!users?.length">
+                <td colspan="4" class="text-center text-muted py-4">No users</td>
+              </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="small text-muted">Page {{page}} / {{totalPages}}</div>
+        <div class="btn-group">
+          <button class="btn btn-outline-secondary btn-sm" (click)="prevPage()" [disabled]="page===1">Prev</button>
+          <button class="btn btn-outline-secondary btn-sm" (click)="nextPage()" [disabled]="page===totalPages">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile/Tablet: cards with pagination -->
+    <div class="d-lg-none">
+      <div class="vstack gap-2">
+        <div class="card" *ngFor="let u of paged(users)">
+          <div class="card-body">
+            <div class="row g-2 align-items-center">
+              <div class="col-12">
+                <div class="text-muted small">Name</div>
+                <input class="form-control form-control-sm" [(ngModel)]="u.name" />
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Email</div>
+                <div class="text-break">{{u.email}}</div>
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Role</div>
+                <select class="form-select form-select-sm" [(ngModel)]="u.role">
+                  <option *ngFor="let r of roles" [value]="r">{{r}}</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <div class="input-group input-group-sm mb-1">
+                  <span class="input-group-text">New pass</span>
+                  <input class="form-control" [(ngModel)]="u._newPassword" placeholder="leave blank" />
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" (click)="update(u)">Save</button>
+                  <button class="btn btn-outline-danger btn-sm" (click)="remove(u)">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="!users?.length" class="text-center text-muted py-4">No users</div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <div class="small text-muted">Page {{page}} / {{totalPages}}</div>
+        <div class="btn-group">
+          <button class="btn btn-outline-secondary btn-sm" (click)="prevPage()" [disabled]="page===1">Prev</button>
+          <button class="btn btn-outline-secondary btn-sm" (click)="nextPage()" [disabled]="page===totalPages">Next</button>
         </div>
       </div>
     </div>

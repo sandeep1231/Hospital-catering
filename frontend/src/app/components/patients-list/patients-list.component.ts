@@ -13,6 +13,12 @@ export class PatientsListComponent implements OnInit {
   q = '';
   loading = false;
   role: string | null = null;
+  // paging
+  page: number = 1;
+  pageSize: number = 20;
+  total: number = 0;
+  // per-patient mobile history expansion state
+  expandedHistory: Record<string, boolean> = {};
   // filters
   status: string = ''; // in_patient | discharged | outpatient | ''(all)
   dietStatus: string = ''; // pending | delivered | cancelled | ''(all)
@@ -67,14 +73,41 @@ export class PatientsListComponent implements OnInit {
     if (this.dietStatus) params.dietStatus = this.dietStatus;
     if (this.roomTypeFilter) params.roomType = this.roomTypeFilter;
     if (this.roomNoFilter) params.roomNo = this.roomNoFilter;
+    // server-side pagination
+    params.page = this.page;
+    params.pageSize = this.pageSize;
     this.api.get('/patients', params).subscribe((res: any) => {
-      this.patients = res || [];
+      if (res && Array.isArray(res.items)) {
+        this.patients = res.items;
+        this.total = Number(res.total) || 0;
+        this.page = Number(res.page) || this.page;
+        this.pageSize = Number(res.pageSize) || this.pageSize;
+      } else if (Array.isArray(res)) {
+        // fallback if server still returns legacy array
+        this.patients = res;
+        this.total = res.length;
+      } else {
+        this.patients = [];
+        this.total = 0;
+      }
       this.loading = false;
     }, err => {
       this.loading = false;
       console.error('Failed to load patients', err);
       this.toast.error('Failed to load patients');
     });
+  }
+
+  totalPages(): number { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
+  canPrev(): boolean { return this.page > 1; }
+  canNext(): boolean { return this.page < this.totalPages(); }
+  prevPage() { if (!this.canPrev()) return; this.page--; this.load(); }
+  nextPage() { if (!this.canNext()) return; this.page++; this.load(); }
+  onPageSizeChange(newSize: any) {
+    const n = parseInt(String(newSize), 10);
+    if (!Number.isNaN(n) && n > 0 && n <= 100) {
+      this.pageSize = n; this.page = 1; this.load();
+    }
   }
 
   newPatient() {
@@ -90,7 +123,35 @@ export class PatientsListComponent implements OnInit {
     if (!confirm(`Delete patient "${p.name}"? This will also remove their diet assignments.`)) return;
     this.api.delete('/patients/' + p._id).subscribe(() => {
       this.toast.success('Patient deleted');
+      // If current page becomes empty, step back a page when possible
+      const wasOnlyItem = this.patients.length === 1 && this.page > 1;
+      if (wasOnlyItem) this.page--;
       this.load();
     }, err => { console.error('Delete failed', err); this.toast.error('Delete failed'); });
   }
+
+  // Helpers for mobile card to avoid showing today's entry inside "Diet (history)"
+  private isSameDay(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  historyWithoutToday(p: any): any[] {
+    if (!p || !Array.isArray(p.dietHistory)) return [];
+    const today = new Date(); today.setHours(0,0,0,0);
+    return p.dietHistory.filter((h: any) => {
+      const d = new Date(h.date);
+      if (isNaN(d.getTime())) return true;
+      d.setHours(0,0,0,0);
+      return !this.isSameDay(d, today);
+    });
+  }
+
+  // Return history sorted in descending order by date (most recent first)
+  sortedHistory(p: any): any[] {
+    if (!p || !Array.isArray(p.dietHistory)) return [];
+    return [...p.dietHistory].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  isHistoryExpanded(p: any): boolean { return !!this.expandedHistory[p?._id]; }
+  toggleHistory(p: any) { if (!p?._id) return; this.expandedHistory[p._id] = !this.expandedHistory[p._id]; }
 }

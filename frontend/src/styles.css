@@ -10,6 +10,64 @@ body { padding-top: 0; background: #f8f9fa; }
 footer { box-shadow: 0 -1px 4px rgba(0,0,0,0.04); }
 footer .small { opacity: 0.85; }
 
+/* Sticky footer layout: keep footer at bottom on short pages */
+html, body { height: 100%; }
+app-root { min-height: 100%; display: flex; flex-direction: column; }
+main { flex: 1 0 auto; }
+footer { flex-shrink: 0; }
+
+/* Reusable scrollable table container and sticky header for large screens */
+.table-container {
+  max-height: 60vh;
+  overflow: auto;
+}
+.table-sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bs-body-bg);
+}
+.table-sticky thead th { border-top: 0; }
+
+/* Compact select groups for time pickers on mobile */
+.time-grid { display: flex; gap: 0.25rem; }
+.time-grid .form-select { min-width: 0; width: 100%; flex: 1 1 0; }
+
+/* Use equal-width grid for time selectors on tablets and below to avoid narrow dropdowns */
+@media (max-width: 992px) {
+  .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
+}
+
+/* (reverted) no extra stacking for small screens */
+
+/* Prevent dropdown menus from overflowing the viewport on mobile */
+.dropdown-menu { max-width: 90vw; width: max-content; min-width: 12rem; white-space: normal; overflow-wrap: anywhere; }
+.form-select { width: 100%; }
+/* Make selects expand within input groups */
+.input-group > .form-select { flex: 1 1 0; }
+/* Keep select within container width and prevent option text overflow */
+select, .form-select { max-width: 100%; }
+select.form-select, select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Force consistent native dropdown width; avoid expanding beyond parent */
+.form-select, select {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* If utility classes set w-auto on selects for toolbars, make them full-width on smaller screens */
+@media (max-width: 768px) {
+  select.w-auto, .form-select.w-auto { width: 100% !important; }
+}
+/* Allow long option labels to wrap within the dropdown list on capable browsers */
+select option, select optgroup option {
+  white-space: normal;
+  word-break: break-word;
+}
+
 @media (max-width: 768px) {
   .login-hero { flex-direction:column; align-items:center; }
   .login-card { width:100%; }

@@ -13,6 +13,9 @@ export class AdminUsersComponent implements OnInit {
   form = { name: '', email: '', password: '', role: 'dietician' };
   roles = ['admin','diet-supervisor','dietician'];
   loading = false;
+  // client-side pagination
+  page = 1;
+  pageSize = 10;
 
   constructor(private api: ApiService, private toast: ToastService) {}
   ngOnInit() { this.load(); }
@@ -20,7 +23,7 @@ export class AdminUsersComponent implements OnInit {
   load() {
     this.loading = true;
     const params: any = {}; if (this.q) params.q = this.q;
-    this.api.get('/users', params).subscribe((res:any)=> { this.users = res || []; this.loading=false; }, err => { this.toast.error('Failed to load users'); this.loading=false; });
+    this.api.get('/users', params).subscribe((res:any)=> { this.users = res || []; this.loading=false; this.page = 1; }, err => { this.toast.error('Failed to load users'); this.loading=false; });
   }
 
   create(e: Event) {
@@ -39,4 +42,14 @@ export class AdminUsersComponent implements OnInit {
     if (!confirm('Delete user ' + u.email + '?')) return;
     this.api.delete(`/users/${u._id}`).subscribe(()=> { this.toast.success('Deleted'); this.load(); }, err => { this.toast.error('Delete failed'); });
   }
+
+  // pagination helpers
+  get total(): number { return this.users?.length || 0; }
+  get totalPages(): number { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
+  paged<T = any>(arr: T[]): T[] {
+    const start = (this.page - 1) * this.pageSize;
+    return (arr || []).slice(start, start + this.pageSize);
+  }
+  nextPage() { if (this.page < this.totalPages) this.page++; }
+  prevPage() { if (this.page > 1) this.page--; }
 }

@@ -61,18 +61,18 @@
               <input class="form-control" type="date" [(ngModel)]="model.inDate" name="inDate" required />
               <div *ngIf="fieldErrors?.inDate" class="invalid-feedback d-block">{{fieldErrors.inDate}}</div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-12 col-md-3">
               <label class="form-label">In Time <span class="text-danger">*</span></label>
-              <div class="d-flex gap-1">
-                <select class="form-select" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}">
+              <div class="time-grid">
+                <select class="form-select form-select-sm" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}">
                   <option value="">HH</option>
                   <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}">
+                <select class="form-select form-select-sm" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}">
                   <option value="">MM</option>
                   <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}">
+                <select class="form-select form-select-sm" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}">
                   <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
                 </select>
               </div>
@@ -82,18 +82,18 @@
               <label class="form-label">Discharge Date</label>
               <input class="form-control" type="date" [(ngModel)]="model.dischargeDate" name="dischargeDate" />
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-12 col-md-3">
               <label class="form-label">Discharge Time</label>
-              <div class="d-flex gap-1">
-                <select class="form-select" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}">
+              <div class="time-grid">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}">
                   <option value="">HH</option>
                   <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}">
                   <option value="">MM</option>
                   <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}">
                   <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
                 </select>
               </div>

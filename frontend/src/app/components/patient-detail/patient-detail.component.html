@@ -52,18 +52,18 @@
               <label class="form-label">In Date <span class="text-danger">*</span></label>
               <input class="form-control" type="date" [(ngModel)]="patient.inDate" name="inDate" required [disabled]="isDisabled('inDate')" />
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-12 col-md-3">
               <label class="form-label">In Time <span class="text-danger">*</span></label>
-              <div class="d-flex gap-1">
-                <select class="form-select" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+              <div class="time-grid">
+                <select class="form-select form-select-sm" [(ngModel)]="inHour" name="inHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
                   <option value="">HH</option>
                   <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+                <select class="form-select form-select-sm" [(ngModel)]="inMinute" name="inMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
                   <option value="">MM</option>
                   <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
+                <select class="form-select form-select-sm" [(ngModel)]="inAmpm" name="inAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('inTime')">
                   <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
                 </select>
               </div>
@@ -71,20 +71,21 @@
             </div>
             <div class="col-6 col-md-3">
               <label class="form-label">Discharge Date</label>
-              <input class="form-control" type="date" [(ngModel)]="patient.dischargeDate" name="dischargeDate" [disabled]="isDisabled('dischargeDate')" />
+              <input class="form-control" type="date" [(ngModel)]="patient.dischargeDate" name="dischargeDate" [disabled]="isDisabled('dischargeDate')" [class.is-invalid]="fieldErrors?.dischargeDate" />
+              <div *ngIf="fieldErrors?.dischargeDate" class="invalid-feedback d-block">{{fieldErrors.dischargeDate}}</div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-12 col-md-3">
               <label class="form-label">Discharge Time</label>
-              <div class="d-flex gap-1">
-                <select class="form-select" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+              <div class="time-grid">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeHour" name="dischargeHour" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
                   <option value="">HH</option>
                   <option *ngFor="let h of hours12" [value]="h">{{h}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeMinute" name="dischargeMinute" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
                   <option value="">MM</option>
                   <option *ngFor="let m of minutes" [value]="m">{{m}}</option>
                 </select>
-                <select class="form-select" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
+                <select class="form-select form-select-sm" [(ngModel)]="dischargeAmpm" name="dischargeAmpm" [ngModelOptions]="{standalone: true}" [disabled]="isDisabled('dischargeTime')">
                   <option *ngFor="let ap of ampmOptions" [value]="ap">{{ap}}</option>
                 </select>
               </div>
@@ -141,11 +142,12 @@
           <div class="row g-3">
             <div class="col-6 col-md-4">
               <label class="form-label">Patient Status <span class="text-danger">*</span></label>
-              <select class="form-select" [(ngModel)]="patient.status" name="status" required [disabled]="isDisabled('status')">
+              <select class="form-select" [(ngModel)]="patient.status" name="status" required [disabled]="isDisabled('status')" [class.is-invalid]="fieldErrors?.status">
                 <option value="in_patient">In Patient</option>
                 <option value="discharged">Discharged</option>
                 <option value="outpatient">Outpatient</option>
               </select>
+              <div *ngIf="fieldErrors?.status" class="invalid-feedback d-block">{{fieldErrors.status}}</div>
             </div>
             <div class="col-6 col-md-3">
               <label class="form-label">Transaction Type <span class="text-danger">*</span></label>

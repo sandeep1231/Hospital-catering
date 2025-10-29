@@ -50,7 +50,12 @@ const PatientSchema: Schema = new Schema({
   dischargeTime: { type: String }
 }, { timestamps: true });
 
-// Unique code per hospital (only when code is set)
-PatientSchema.index({ hospitalId: 1, code: 1 }, { unique: true, sparse: true });
+// Unique code per hospital (only when code exists and is not null)
+// Use partialFilterExpression instead of sparse to avoid treating null as a value
+// and to ensure uniqueness is enforced only when `code` is present.
+PatientSchema.index(
+  { hospitalId: 1, code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: 'string' } } }
+);
 
 export default mongoose.model<IPatient>('Patient', PatientSchema);

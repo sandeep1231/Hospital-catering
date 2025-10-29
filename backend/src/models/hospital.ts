@@ -10,7 +10,8 @@ const HospitalSchema: Schema = new Schema({
   address: { type: String }
 }, { timestamps: true });
 
-// Index for efficient name lookups and sorting
-HospitalSchema.index({ name: 1 });
+// Note: unique index on name is already declared via the schema field above.
+// Avoid adding a separate non-unique index on { name: 1 } as it conflicts
+// with the existing unique index when syncing indexes.
 
 export default mongoose.model<IHospital>('Hospital', HospitalSchema);

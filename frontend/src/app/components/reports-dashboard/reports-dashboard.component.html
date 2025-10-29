@@ -21,33 +21,229 @@
         </div>
       </div>
 
-      <div class="table-responsive mt-3" *ngIf="businessRows.length">
-        <table class="table table-sm table-bordered" id="businessRangeTable">
-          <thead>
-            <tr>
-              <th>In Date</th>
-              <th>Discharge Date</th>
-              <th>Patient Name</th>
-              <th>Phone</th>
-              <th class="text-end">Bill Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of businessRows">
-              <td>{{ r.inDate }}</td>
-              <td>{{ r.dischargeDate }}</td>
-              <td>{{ r.name }}</td>
-              <td>{{ r.phone }}</td>
-              <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colspan="4" class="text-end">Total</th>
-              <th class="text-end">{{ businessTotal | number:'1.2-2' }}</th>
-            </tr>
-          </tfoot>
-        </table>
+      <div class="mt-3" *ngIf="businessRows.length">
+        <!-- Desktop (lg+): table in card with sticky header -->
+        <div class="card d-none d-lg-block d-print-none">
+          <div class="card-body p-0">
+            <div class="table-container table-responsive">
+              <table class="table table-sm align-middle table-sticky mb-0">
+                <thead>
+                  <tr>
+                    <th>In Date</th>
+                    <th>Discharge Date</th>
+                    <th>Patient Name</th>
+                    <th>Phone</th>
+                    <th class="text-end">Bill Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let r of bPagedRows()">
+                    <td>{{ r.inDate }}</td>
+                    <td>{{ r.dischargeDate }}</td>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.phone }}</td>
+                    <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="small text-muted">
+              Showing {{ (bPagedRows().length ? ((bPage-1)*bPageSize + 1) : 0) }}
+              to {{ ((bPage-1)*bPageSize + bPagedRows().length) }} of {{ bCount }}
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <select class="form-select form-select-sm w-auto" [ngModel]="bPageSize" (ngModelChange)="bOnPageSizeChange($event)">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" (click)="bPrev()" [disabled]="!bCanPrev()">Prev</button>
+                <button class="btn btn-sm btn-outline-secondary" (click)="bNext()" [disabled]="!bCanNext()">Next</button>
+              </div>
+              <div class="small text-muted">Page {{bPage}} / {{ bTotalPages() }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cards for mobile/tablet -->
+        <div class="row g-2 d-lg-none d-print-none">
+          <div class="col-12" *ngFor="let r of bPagedRows()">
+            <div class="card">
+              <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="small text-muted">In: {{ r.inDate }} | Out: {{ r.dischargeDate }}</div>
+                  <div class="fw-semibold">{{ r.name }}</div>
+                  <div class="small text-muted">Phone: {{ r.phone }}</div>
+                </div>
+                <div class="text-end">
+                  <div class="fw-semibold">{{ r.billAmount | number:'1.2-2' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <div class="small text-muted">
+                Showing {{ (bPagedRows().length ? ((bPage-1)*bPageSize + 1) : 0) }}
+                to {{ ((bPage-1)*bPageSize + bPagedRows().length) }} of {{ bCount }}
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm w-auto" [ngModel]="bPageSize" (ngModelChange)="bOnPageSizeChange($event)">
+                  <option [ngValue]="10">10</option>
+                  <option [ngValue]="20">20</option>
+                  <option [ngValue]="50">50</option>
+                  <option [ngValue]="100">100</option>
+                </select>
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-secondary" (click)="bPrev()" [disabled]="!bCanPrev()">Prev</button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="bNext()" [disabled]="!bCanNext()">Next</button>
+                </div>
+                <div class="small text-muted">Page {{bPage}} / {{ bTotalPages() }}</div>
+              </div>
+            </div>
+            <div class="mt-2 text-end"><strong>Total:</strong> {{ businessTotal | number:'1.2-2' }}</div>
+          </div>
+        </div>
+
+        <!-- Keep table for printing only -->
+  <div class="table-responsive mt-3 d-none d-print-block">
+          <table class="table table-sm table-bordered" id="businessRangeTable">
+            <thead>
+              <tr>
+                <th>In Date</th>
+                <th>Discharge Date</th>
+                <th>Patient Name</th>
+                <th>Phone</th>
+                <th class="text-end">Bill Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of businessRows">
+                <td>{{ r.inDate }}</td>
+                <td>{{ r.dischargeDate }}</td>
+                <td>{{ r.name }}</td>
+                <td>{{ r.phone }}</td>
+                <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="4" class="text-end">Total</th>
+                <th class="text-end">{{ businessTotal | number:'1.2-2' }}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h6 class="card-title">Analytics</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label">From</label>
+          <input class="form-control form-control-sm" type="date" [(ngModel)]="analyticsFrom">
+        </div>
+        <div class="col-auto">
+          <label class="form-label">To</label>
+          <input class="form-control form-control-sm" type="date" [(ngModel)]="analyticsTo">
+        </div>
+        <div class="col-auto">
+          <label class="form-label">Granularity</label>
+          <select class="form-select form-select-sm" [(ngModel)]="analyticsGran">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-sm btn-primary" (click)="loadAnalytics()">Run</button>
+        </div>
+      </div>
+
+      <div class="row mt-3 g-3">
+        <div class="col-12 d-flex flex-wrap gap-3">
+          <span class="badge text-bg-secondary">Deliveries: {{ totalDeliveries }}</span>
+          <span class="badge text-bg-secondary">Unique Patients: {{ totalUniquePatients }}</span>
+          <span class="badge text-bg-success">Revenue: {{ totalRevenue | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="row mt-2 g-3">
+        <!-- Charts moved to individual cards below -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Top charts row: side-by-side on large screens -->
+  <div class="row mt-3 g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card chart-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="card-title mb-0">Diets Over Time</h6>
+          </div>
+          <div class="small text-muted mb-2">X: Time bucket ({{ analyticsGran }}), Y: Deliveries (count)</div>
+          <div echarts [options]="optsOverTime" class="w-100" style="height: 340px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card chart-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="card-title mb-0">Revenue Over Time</h6>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Revenue mode">
+              <button type="button" class="btn" [ngClass]="revenueMode === 'daily' ? 'btn-primary' : 'btn-outline-secondary'" (click)="setRevenueMode('daily')">Daily</button>
+              <button type="button" class="btn" [ngClass]="revenueMode === 'cumulative' ? 'btn-primary' : 'btn-outline-secondary'" (click)="setRevenueMode('cumulative')">Cumulative</button>
+            </div>
+          </div>
+          <div class="small text-muted mb-2">X: Time bucket ({{ analyticsGran }}), Y: Revenue (currency)</div>
+          <div echarts [options]="optsRevenue" class="w-100" style="height: 340px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diet Sales by Room Type Card -->
+  <div class="card mt-3 chart-card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <h6 class="card-title mb-0">Diet Sales by Room Type</h6>
+      </div>
+      <div class="small text-muted mb-2">X: Room Type, Y: Deliveries (count)</div>
+      <div echarts [options]="optsRoom" class="w-100" style="height: 340px;"></div>
+    </div>
+  </div>
+
+  <!-- Distribution and Payer Mix Cards in a Row -->
+  <div class="row mt-3 g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card chart-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="card-title mb-0">Diet Distribution</h6>
+          </div>
+          <div class="small text-muted mb-2">Metric: Deliveries (count)</div>
+          <div echarts [options]="optsDietDist" class="w-100" style="height: 320px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card chart-card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="card-title mb-0">Payer Mix</h6>
+          </div>
+          <div class="small text-muted mb-2">Metric: Deliveries (count) by payer</div>
+          <div echarts [options]="optsPayer" class="w-100" style="height: 320px;"></div>
+        </div>
       </div>
     </div>
   </div>

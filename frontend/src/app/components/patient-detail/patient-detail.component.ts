@@ -91,11 +91,11 @@ export class PatientDetailComponent implements OnInit {
   loadAssignments() {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
-    this.api.get(`/diet-assignments/patient/${id}`).subscribe((res: any) => {
+  this.api.get(`/diet-assignments/patient/${id}`).subscribe((res: any) => {
       const arr = Array.isArray(res) ? res : [];
       this.assignments = arr.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       this.applyFilter();
-    }, console.error);
+  }, (err) => { console.error(err); this.toast.error('Failed to load diet assignments'); });
   }
 
   setFilter(days: number | 'all') { this.filterDays = days; this.applyFilter(); }
@@ -134,6 +134,23 @@ export class PatientDetailComponent implements OnInit {
       return;
     }
     if (!this.clientValidate()) return;
+    // Additional discharge validation
+    const status = String(this.patient?.status || '').trim();
+    const hasDischargeDate = !!this.patient?.dischargeDate;
+    const hasDischargeTime = !!(this.dischargeHour || this.dischargeMinute);
+    const dischargeFilled = hasDischargeDate || hasDischargeTime;
+    // If status set to discharged, require both date and time
+    if (status === 'discharged') {
+      if (!hasDischargeDate || !hasDischargeTime) {
+        this.toast.error('Please provide both Discharge Date and Discharge Time for discharged patients');
+        return;
+      }
+    }
+    // If discharge date/time is provided but status is not discharged, block with actionable error
+    if (dischargeFilled && status !== 'discharged') {
+      this.toast.error('Discharge Date/Time entered: set Status to Discharged to continue');
+      return;
+    }
     this.isSaving = true;
     // convert 12h UI back to 24h for API
     const to24h = (hh: string, mm: string, ap: 'AM'|'PM'): string | '' => {
@@ -163,12 +180,16 @@ export class PatientDetailComponent implements OnInit {
     };
     this.patient.inDate = fixDate(this.patient.inDate) || undefined;
     this.patient.dischargeDate = fixDate(this.patient.dischargeDate) || undefined;
-    this.api.put('/patients/' + id, this.patient).subscribe((res:any) => { this.toast.success('Saved'); this.patient = res; this.isSaving = false; }, err => {
+    this.api.put('/patients/' + id, this.patient).subscribe((res:any) => {
+      const wasDischarged = status === 'discharged';
+      this.toast.success(wasDischarged ? 'Patient discharged and saved' : 'Patient details saved');
+      this.patient = res; this.isSaving = false; }, err => {
       if (err?.status === 400 && err.error?.errors) {
         this.serverErrors = Array.isArray(err.error.errors) ? err.error.errors : [{ message: String(err.error.errors) }];
         this.mapStructuredErrors(this.serverErrors);
+        this.toast.error('Please correct the highlighted fields');
       } else {
-        this.toast.error('Save failed');
+        this.toast.error(err?.error?.message || 'Save failed');
         console.error(err);
       }
       this.isSaving = false;
@@ -180,7 +201,7 @@ export class PatientDetailComponent implements OnInit {
     if (!id) return;
     const payload = { patientId: id, ...this.newAssign };
     this.api.post('/diet-assignments', payload).subscribe(() => { this.toast.success('Diet assigned'); this.newAssign = { date: '', fromTime: '', toTime: '', diet: undefined, note: '', price: 0 }; this.loadAssignments(); }, err => {
-      this.toast.error('Diet assign failed'); console.error(err);
+      this.toast.error(err?.error?.message || 'Diet assign failed'); console.error(err);
     });
   }
 
@@ -191,7 +212,7 @@ export class PatientDetailComponent implements OnInit {
     this.api.post('/diet-assignments/bulk', payload).subscribe((res:any) => {
       this.toast.success(`Bulk assign done (${res?.count || 0})`);
       this.loadAssignments();
-    }, err => { this.toast.error('Bulk assign failed'); console.error(err); });
+    }, err => { this.toast.error(err?.error?.message || 'Bulk assign failed'); console.error(err); });
   }
 
   runChangeDiet() {
@@ -205,11 +226,11 @@ export class PatientDetailComponent implements OnInit {
       // clear form
       this.changeDiet = { startDate: '', endDate: '', untilDischarge: true, newDiet: undefined, note: '' };
       this.changeDietLoading = false;
-    }, err => { this.toast.error('Change diet failed'); console.error(err); this.changeDietLoading = false; });
+    }, err => { this.toast.error(err?.error?.message || 'Change diet failed'); console.error(err); this.changeDietLoading = false; });
   }
 
   markDelivered(a: any) {
-    this.api.post(`/diet-assignments/${a._id}/deliver`, {}).subscribe((res:any) => { this.toast.success('Marked delivered'); a.status = res.status; a.deliveredAt = res.deliveredAt; }, err => { this.toast.error('Failed'); console.error(err); });
+  this.api.post(`/diet-assignments/${a._id}/deliver`, {}).subscribe((res:any) => { this.toast.success('Marked delivered'); a.status = res.status; a.deliveredAt = res.deliveredAt; }, err => { this.toast.error(err?.error?.message || 'Failed to mark delivered'); console.error(err); });
   }
 
   deleteAssignment(a: any) {
@@ -221,7 +242,7 @@ export class PatientDetailComponent implements OnInit {
       this.toast.success('Diet assignment deleted');
       this.loadAssignments();
       this.deleting[a._id] = false;
-    }, err => { this.toast.error('Diet delete failed'); console.error(err); this.deleting[a._id] = false; });
+    }, err => { this.toast.error(err?.error?.message || 'Diet delete failed'); console.error(err); this.deleting[a._id] = false; });
   }
 
   reset() { this.ngOnInit(); }
@@ -270,6 +291,18 @@ export class PatientDetailComponent implements OnInit {
     // required status & transactionType
     if (!this.patient.status) fe.status = 'Patient status is required';
     if (!this.patient.transactionType) fe.transactionType = 'Transaction type is required';
+    // Discharge cross-field: if status is discharged, require both discharge date and discharge time
+    if (this.patient.status === 'discharged') {
+      const tFilled = !!(this.dischargeHour || this.dischargeMinute);
+      if (!this.patient.dischargeDate) fe.dischargeDate = 'Discharge date is required when status is Discharged';
+      if (!tFilled) fe.dischargeTime = 'Discharge time is required when status is Discharged';
+    }
+    // If discharge date/time provided but status not discharged, flag
+    const hasDDate = !!this.patient.dischargeDate;
+    const hasDTime = !!(this.dischargeHour || this.dischargeMinute);
+    if ((hasDDate || hasDTime) && this.patient.status !== 'discharged') {
+      fe.status = 'Set status to Discharged when discharge date/time is provided';
+    }
     // removed legacy billing validations
     this.fieldErrors = fe;
     return Object.keys(fe).length === 0;

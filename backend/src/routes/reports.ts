@@ -80,7 +80,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
     const start = fromDay.startOf('day').toDate();
     const end = toDay.endOf('day').toDate();
 
-    // Patients admitted and discharged fully within the window and both dates exist
+    // Only include patients whose inDate and dischargeDate are BOTH within the [from,to] window
     const matchPatients: any = {
       inDate: { $gte: start, $lte: end },
       dischargeDate: { $gte: start, $lte: end }
@@ -157,8 +157,9 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
                   {
                     $match: {
                       $expr: {
+                        // fuzzy: does the assignment diet contain the diet type name?
                         $gte: [
-                          { $indexOfCP: [ { $toLower: { $trim: { input: '$name' } } }, '$$dn' ] },
+                          { $indexOfCP: [ '$$dn', { $toLower: { $trim: { input: '$name' } } } ] },
                           0
                         ]
                       }
@@ -193,3 +194,222 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
 });
 
 export default router;
+
+// Analytics for charts: diets over time, by room type, distribution, totals
+router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const tzMin = -new Date().getTimezoneOffset();
+    const sign = tzMin >= 0 ? '+' : '-';
+    const abs = Math.abs(tzMin);
+    const hh = String(Math.trunc(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    const tz = `${sign}${hh}:${mm}`;
+
+    const fromStr = String(req.query.from || '').trim();
+    const toStr = String(req.query.to || '').trim();
+    const gran = String(req.query.granularity || 'daily'); // daily | weekly | monthly
+    const now = dayjs();
+    const fromDay = fromStr ? dayjs(fromStr) : now.subtract(30, 'day');
+    const toDay = toStr ? dayjs(toStr) : now;
+    if (!fromDay.isValid() || !toDay.isValid()) return res.status(400).json({ error: 'Invalid from/to date' });
+    const start = fromDay.startOf('day').toDate();
+    const end = toDay.endOf('day').toDate();
+
+    const baseMatch: any = { date: { $gte: start, $lte: end }, status: 'delivered' };
+    if (hidObj) baseMatch.hospitalId = hidObj;
+
+    // Helper: bucket expression per granularity as a string field 'bucket'
+    const bucketAddFields: any = gran === 'monthly'
+      ? { bucket: { $dateToString: { format: '%Y-%m', date: '$date', timezone: tz } } }
+      : gran === 'weekly'
+        ? {
+            // ISO year-week, e.g., 2025-W09
+            bucket: {
+              $let: {
+                vars: { y: { $isoWeekYear: '$date' }, w: { $isoWeek: '$date' } },
+                in: {
+                  $concat: [
+                    { $toString: '$$y' },
+                    '-W',
+                    {
+                      $cond: [
+                        { $lt: ['$$w', 10] },
+                        { $concat: ['0', { $toString: '$$w' }] },
+                        { $toString: '$$w' }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        : { bucket: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: tz } } };
+
+    // Base lookups to resolve DietType.defaultPrice similar to business-range
+    const priceLookups: any[] = [
+      {
+        $lookup: {
+          from: 'diettypes',
+          let: { dn: '$diet' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toLower: { $trim: { input: '$name' } } }, { $toLower: { $trim: { input: '$$dn' } } }] },
+                    ...(hidObj ? [{ $eq: ['$hospitalId', hidObj] }] : [])
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+          ],
+          as: 'dtHosp'
+        }
+      },
+      {
+        $lookup: {
+          from: 'diettypes',
+          let: { dn: '$diet' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [{ $toLower: { $trim: { input: '$name' } } }, { $toLower: { $trim: { input: '$$dn' } } }]
+                }
+              }
+            },
+            { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+          ],
+          as: 'dtAny'
+        }
+      },
+      {
+        $lookup: {
+          from: 'diettypes',
+          let: { dn: { $toLower: { $trim: { input: '$diet' } } } },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $gte: [
+                    { $indexOfCP: ['$$dn', { $toLower: { $trim: { input: '$name' } } }] },
+                    0
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+          ],
+          as: 'dtFuzzy'
+        }
+      },
+      { $addFields: { defaultPrice: { $ifNull: [{ $arrayElemAt: ['$dtHosp.defaultPrice', 0] }, { $arrayElemAt: ['$dtAny.defaultPrice', 0] }, { $arrayElemAt: ['$dtFuzzy.defaultPrice', 0] }, 0] } } },
+      { $addFields: { defaultPrice: { $cond: [{ $lte: ['$defaultPrice', 0] }, 0, '$defaultPrice'] } } },
+      { $addFields: { priceUsed: '$defaultPrice' } }
+    ];
+
+    // 1) Over time by diet
+    const overTimeGroups = await DietAssignment.aggregate([
+      { $match: baseMatch },
+      { $addFields: bucketAddFields },
+      ...priceLookups,
+      { $group: { _id: { b: '$bucket', d: '$diet' }, count: { $sum: 1 }, revenue: { $sum: '$priceUsed' } } },
+      { $project: { _id: 0, bucket: '$_id.b', diet: '$_id.d', count: 1, revenue: 1 } },
+      { $sort: { bucket: 1 } }
+    ]);
+
+    // 2) By room type
+    const byRoomTypeGroups = await DietAssignment.aggregate([
+      { $match: baseMatch },
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      { $group: { _id: { r: { $ifNull: ['$p.roomType', 'Unknown'] }, d: '$diet' }, count: { $sum: 1 } } },
+      { $project: { _id: 0, roomType: '$_id.r', diet: '$_id.d', count: 1 } },
+      { $sort: { roomType: 1 } }
+    ]);
+
+    // 3) Diet distribution
+    const dietDistribution = await DietAssignment.aggregate([
+      { $match: baseMatch },
+      { $group: { _id: '$diet', count: { $sum: 1 } } },
+      { $project: { _id: 0, diet: '$_id', count: 1 } },
+      { $sort: { diet: 1 } }
+    ]);
+
+    // 4) Totals
+    const totalsAgg = await DietAssignment.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: null,
+          deliveredCount: { $sum: 1 },
+          patients: { $addToSet: '$patientId' }
+        }
+      },
+      { $project: { _id: 0, deliveredCount: 1, uniquePatients: { $size: '$patients' } } }
+    ]);
+
+    // 5) Payer mix (by patient.transactionType) with counts and revenue
+    const payerMixAgg = await DietAssignment.aggregate([
+      { $match: baseMatch },
+      ...priceLookups,
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      { $addFields: { payer: { $ifNull: ['$p.transactionType', 'Unknown'] } } },
+      { $group: { _id: '$payer', count: { $sum: 1 }, revenue: { $sum: '$priceUsed' } } },
+      { $project: { _id: 0, payer: '$_id', count: 1, revenue: 1 } },
+      { $sort: { payer: 1 } }
+    ]);
+
+    // Pivot overTime into chart datasets
+    const labelSet = new Set<string>();
+    const dietSet = new Set<string>();
+    overTimeGroups.forEach((g: any) => { labelSet.add(g.bucket); dietSet.add(g.diet); });
+    const labels = Array.from(labelSet).sort();
+    const diets = Array.from(dietSet);
+    const dataMap: Record<string, Record<string, { count: number; revenue: number }>> = {};
+    labels.forEach(l => { dataMap[l] = {}; diets.forEach(d => { dataMap[l][d] = { count: 0, revenue: 0 }; }); });
+    overTimeGroups.forEach((g: any) => { dataMap[g.bucket][g.diet] = { count: g.count, revenue: g.revenue }; });
+    const datasets = diets.map(d => ({ label: d, data: labels.map(l => dataMap[l][d].count) }));
+    const revenueSeries = labels.map(l => Object.values(dataMap[l]).reduce((s, v) => s + (v.revenue || 0), 0));
+    const revenueTotal = revenueSeries.reduce((a, b) => a + b, 0);
+
+    // Pivot by room type into stacked datasets per diet
+  // Determine full list of room types for the hospital to ensure zero-value categories appear
+  const distinctRoomTypes: string[] = await Patient.distinct('roomType', hidObj ? { hospitalId: hidObj } : {});
+  const fullRoomTypes = Array.from(new Set([...(distinctRoomTypes || []).filter(rt => !!rt && String(rt).trim() !== ''), 'Unknown'])).sort();
+
+  const roomDietSet = new Set<string>();
+  byRoomTypeGroups.forEach((g: any) => { roomDietSet.add(g.diet); });
+  const roomLabels = fullRoomTypes;
+    const roomDiets = Array.from(roomDietSet);
+    const roomMap: Record<string, Record<string, number>> = {};
+    roomLabels.forEach(l => { roomMap[l] = {}; roomDiets.forEach(d => { roomMap[l][d] = 0; }); });
+    byRoomTypeGroups.forEach((g: any) => { roomMap[g.roomType][g.diet] = g.count; });
+    const roomDatasets = roomDiets.map(d => ({ label: d, data: roomLabels.map(l => roomMap[l][d]) }));
+
+    // Diet distribution simple pie
+    const dietDistLabels = dietDistribution.map((d: any) => d.diet);
+    const dietDistData = dietDistribution.map((d: any) => d.count);
+
+  // Payer mix shape
+  const payerLabels = payerMixAgg.map((p: any) => p.payer || 'Unknown');
+  const payerCounts = payerMixAgg.map((p: any) => p.count || 0);
+  const payerRevenue = payerMixAgg.map((p: any) => p.revenue || 0);
+
+    res.json({
+      range: { from: fromDay.format('YYYY-MM-DD'), to: toDay.format('YYYY-MM-DD'), granularity: gran },
+      overTime: { labels, datasets, revenue: revenueSeries },
+      byRoomType: { labels: roomLabels, datasets: roomDatasets },
+      dietDistribution: { labels: dietDistLabels, data: dietDistData },
+      payerMix: { labels: payerLabels, counts: payerCounts, revenue: payerRevenue },
+      totals: { deliveredCount: totalsAgg[0]?.deliveredCount || 0, uniquePatients: totalsAgg[0]?.uniquePatients || 0, revenueTotal }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load analytics' });
+  }
+});

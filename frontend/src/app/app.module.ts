@@ -12,6 +12,7 @@ import { ConfirmDeliverModalComponent } from './components/orders/confirm-delive
 import { ToastService } from './services/toast.service';
 import { PatientCreateComponent } from './components/patient-create/patient-create.component';
 import { FormsModule } from '@angular/forms';
+import { NgxEchartsModule } from 'ngx-echarts';
 import { PatientDetailComponent } from './components/patient-detail/patient-detail.component';
 import { RegisterComponent } from './components/register/register.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
@@ -25,7 +26,7 @@ import { AuthInterceptor } from './services/auth-interceptor.service';
 
 @NgModule({
   declarations: [AppComponent, LoginComponent, PatientsListComponent, OrdersComponent, DietPlanEditorComponent, ToastContainerComponent, ConfirmDeliverModalComponent, PatientCreateComponent, PatientDetailComponent, RegisterComponent, AdminUsersComponent, AdminInviteComponent, ManualOrderComponent, AdminMenuComponent, ReportsDashboardComponent, DietSupervisorComponent, AdminDietsComponent],
-  imports: [BrowserModule, HttpClientModule, AppRoutingModule, FormsModule],
+  imports: [BrowserModule, HttpClientModule, AppRoutingModule, FormsModule, NgxEchartsModule.forRoot({ echarts: () => import('echarts') })],
   providers: [
     ToastService,
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }

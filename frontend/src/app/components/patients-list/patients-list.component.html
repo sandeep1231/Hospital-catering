@@ -11,12 +11,12 @@
       <div class="row g-2 align-items-center">
       <div class="col-12 col-lg-4">
         <div class="input-group">
-          <input class="form-control" placeholder="Search by name or phone" [(ngModel)]="q" (keyup.enter)="load()" />
-          <button class="btn btn-outline-secondary" (click)="load()" title="Search" aria-label="Search">🔍</button>
+          <input class="form-control" placeholder="Search by name or phone" [(ngModel)]="q" (keyup.enter)="page=1; load()" />
+          <button class="btn btn-outline-secondary" (click)="page=1; load()" title="Search" aria-label="Search">🔍</button>
         </div>
       </div>
       <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="status" (change)="load()">
+        <select class="form-select" [(ngModel)]="status" (change)="page=1; load()">
           <option value="">All patients</option>
           <option value="in_patient">In-patient</option>
           <option value="discharged">Discharged</option>
@@ -24,7 +24,7 @@
         </select>
       </div>
       <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="dietStatus" (change)="load()">
+        <select class="form-select" [(ngModel)]="dietStatus" (change)="page=1; load()">
           <option value="">All diet statuses</option>
           <option value="pending">Diet: Pending</option>
           <option value="delivered">Diet: Delivered</option>
@@ -38,13 +38,13 @@
         </select>
       </div>
       <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="roomNoFilter" (change)="load()">
+        <select class="form-select" [(ngModel)]="roomNoFilter" (change)="page=1; load()">
           <option value="">Room no</option>
           <option *ngFor="let rn of roomNos" [value]="rn">{{rn}}</option>
         </select>
       </div>
       <div class="col-12 col-lg-2 d-grid d-lg-block text-end">
-        <button class="btn btn-outline-secondary w-100 w-lg-auto" (click)="q=''; status=''; dietStatus=''; roomTypeFilter=''; roomNoFilter=''; load()">Reset</button>
+        <button class="btn btn-outline-secondary w-100 w-lg-auto" (click)="q=''; status=''; dietStatus=''; roomTypeFilter=''; roomNoFilter=''; page=1; load()">Reset</button>
       </div>
     </div>
   </div>
@@ -53,58 +53,86 @@
 
   <div *ngIf="!loading && patients.length === 0" class="alert alert-light">No patients found</div>
 
-  <!-- Desktop: table view -->
-  <div class="table-responsive d-none d-lg-block">
-    <table class="table table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Name</th>
-          <th>Phone</th>
-          <th>Room</th>
-          <th>Bed No.</th>
-          <th>Patient Type</th>
-          <th>Diet</th>
-          <th class="text-end">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let p of patients">
-          <td>
-            {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}
-          </td>
-          <td>
-            <div class="fw-medium">{{p.name}}</div>
-            <div class="small text-muted">Age: {{p.age || '—'}}</div>
-          </td>
-          <td>{{p.phone || '—'}}</td>
-          <td>{{p.roomType || '—'}} / {{p.roomNo || '—'}}</td>
-          <td>{{p.bed || '—'}}</td>
-          <td>
-            <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
-            <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
-            <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
-          </td>
-          <td>
-            <ng-container [ngSwitch]="p.todayDietStatus">
-              <span *ngSwitchCase="'delivered'" class="badge bg-success">Delivered</span>
-              <span *ngSwitchCase="'pending'" class="badge bg-warning text-dark">Pending</span>
-              <span *ngSwitchCase="'cancelled'" class="badge bg-secondary">Cancelled</span>
-              <span *ngSwitchDefault class="text-muted">—</span>
-            </ng-container>
-            <div class="small text-muted" *ngIf="p.todayDiet">{{p.todayDiet}}</div>
-          </td>
-          <td class="text-end">
-            <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
-              View
-            </button>
-            <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Desktop: table in card with sticky header and scroll -->
+  <div class="card d-none d-lg-block">
+    <div class="card-body p-0">
+      <div class="table-container table-responsive">
+        <table class="table table-sm align-middle table-sticky mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Room</th>
+              <th>Bed No.</th>
+              <th>Patient Type</th>
+              <th>Diet (history)</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of patients">
+              <td>
+                {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}
+              </td>
+              <td>
+                <div class="fw-medium">{{p.name}}</div>
+                <div class="small text-muted">Age: {{p.age || '—'}}</div>
+              </td>
+              <td>{{p.phone || '—'}}</td>
+              <td>{{p.roomType || '—'}} / {{p.roomNo || '—'}}</td>
+              <td>{{p.bed || '—'}}</td>
+              <td>
+                <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
+                <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
+                <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
+              </td>
+              <td>
+                <!-- Compact history list -->
+                <div class="small text-muted" *ngIf="sortedHistory(p)?.length">
+                  <div *ngFor="let h of sortedHistory(p)">
+                    <span>{{ h.date | date:'dd-MM-yyyy' }}:</span>
+                    <span class="ms-1">{{ h.diet }}</span>
+                    <span class="badge ms-1" [ngClass]="{
+                      'bg-success': h.status==='delivered',
+                      'bg-warning text-dark': h.status==='pending',
+                      'bg-secondary': h.status==='cancelled'
+                    }">{{ h.status }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
+                  View
+                </button>
+                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <div class="small text-muted">
+        Showing {{ (patients.length ? ((page-1)*pageSize + 1) : 0) }}
+        to {{ ((page-1)*pageSize + patients.length) }} of {{ total }}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+          <option [ngValue]="10">10</option>
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+          <option [ngValue]="100">100</option>
+        </select>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline-secondary" (click)="prevPage()" [disabled]="!canPrev()">Prev</button>
+          <button class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="!canNext()">Next</button>
+        </div>
+        <div class="small text-muted">Page {{page}} / {{ totalPages() }}</div>
+      </div>
+    </div>
   </div>
 
   <!-- Mobile/Tablet: card view with icons -->
@@ -115,40 +143,66 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start">
               <div>
+                <div class="small text-muted">Date: {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}</div>
                 <div class="fw-semibold">{{p.name}}</div>
-                <div class="small text-muted">Room: {{p.roomType || '—'}} | Bed: {{p.bed || '—'}}</div>
               </div>
               <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-sm btn-outline-primary" (click)="open(p)" title="Edit / View" aria-label="Edit">
-                  ✏️
-                </button>
-                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete" aria-label="Delete">
-                  🗑️
-                </button>
+                <button class="btn btn-sm btn-outline-primary" (click)="open(p)" title="Edit / View" aria-label="Edit">✏️</button>
+                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete" aria-label="Delete">🗑️</button>
               </div>
             </div>
-            <div class="mt-2 small">
-              <span class="me-2"><strong>Diet:</strong> {{p.diet || '—'}}</span>
-              <span class="me-2"><strong>Patient:</strong>
-                <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
-                <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
-                <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
-              </span>
-            </div>
+            <div class="small text-muted mt-1"><strong>Phone:</strong> {{p.phone || '—'}}</div>
+            <div class="small text-muted mt-1"><strong>Room:</strong> {{p.roomType || '—'}} / {{p.roomNo || '—'}}</div>
+            <div class="small text-muted mt-1"><strong>Bed No.:</strong> {{p.bed || '—'}}</div>
             <div class="small mt-1">
-              <strong>Today:</strong>
-              <ng-container [ngSwitch]="p.todayDietStatus">
-                <span *ngSwitchCase="'delivered'" class="badge bg-success">Delivered</span>
-                <span *ngSwitchCase="'pending'" class="badge bg-warning text-dark">Pending</span>
-                <span *ngSwitchCase="'cancelled'" class="badge bg-secondary">Cancelled</span>
-                <span *ngSwitchDefault class="text-muted">—</span>
+              <strong>Patient Type:</strong>
+              <span class="badge bg-secondary ms-1" *ngIf="p.status==='in_patient'">In-patient</span>
+              <span class="badge bg-success ms-1" *ngIf="p.status==='discharged'">Discharged</span>
+              <span class="badge bg-info text-dark ms-1" *ngIf="p.status==='outpatient'">Outpatient</span>
+            </div>
+            <div class="small mt-2">
+              <div class="fw-semibold">Diet (history)</div>
+              <ng-container *ngIf="sortedHistory(p)?.length as histLen">
+                <div class="small text-muted mt-1">
+                  <ng-container *ngFor="let h of sortedHistory(p) | slice:0:(isHistoryExpanded(p) ? histLen : 5)">
+                    <div>
+                      {{ h.date | date:'dd-MM-yyyy' }}: {{ h.diet }}
+                      <span class="badge ms-1" [ngClass]="{
+                        'bg-success': h.status==='delivered',
+                        'bg-warning text-dark': h.status==='pending',
+                        'bg-secondary': h.status==='cancelled'
+                      }">{{ h.status }}</span>
+                    </div>
+                  </ng-container>
+                </div>
+                <div class="mt-1" *ngIf="histLen > 5">
+                  <button class="btn btn-link btn-sm p-0" (click)="toggleHistory(p)">
+                    {{ isHistoryExpanded(p) ? 'Show less' : 'Show more' }}
+                  </button>
+                </div>
               </ng-container>
-              <span class="text-muted ms-1" *ngIf="p.todayDiet">({{p.todayDiet}})</span>
             </div>
-            <div class="small text-muted mt-1">
-              <span class="me-2"><strong>Phone:</strong> {{p.phone || '—'}}</span>
-              <span><strong>Code:</strong> {{p.code || '—'}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="small text-muted">
+            Showing {{ (patients.length ? ((page-1)*pageSize + 1) : 0) }}
+            to {{ ((page-1)*pageSize + patients.length) }} of {{ total }}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="20">20</option>
+              <option [ngValue]="50">50</option>
+              <option [ngValue]="100">100</option>
+            </select>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" (click)="prevPage()" [disabled]="!canPrev()">Prev</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="!canNext()">Next</button>
             </div>
+            <div class="small text-muted">Page {{page}} / {{ totalPages() }}</div>
           </div>
         </div>
       </div>

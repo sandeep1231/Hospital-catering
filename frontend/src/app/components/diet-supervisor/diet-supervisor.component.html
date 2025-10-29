@@ -1,11 +1,19 @@
 <div class="container mt-3">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
     <h4 class="mb-0">Diet Supervisor</h4>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-primary" (click)="generateToday()" [disabled]="loading">Generate today's list</button>
-      <button class="btn btn-sm btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
+    <div class="d-flex flex-column align-items-end">
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-primary" (click)="generateToday()" [disabled]="loading">Generate today's list</button>
+        <button class="btn btn-sm btn-outline-primary" (click)="openTotals()" [disabled]="loading || !assignments.length">Today's diet totals</button>
+        <button class="btn btn-sm btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
+      </div>
+      <div class="d-flex flex-wrap justify-content-end mt-2" style="gap: .5rem .5rem;" *ngIf="badgeTotals.length">
+        <span *ngFor="let b of badgeTotals" class="badge text-bg-info">{{ b.name }}: {{ b.count }}</span>
+      </div>
     </div>
   </div>
+
+  
 
   <div class="card mb-3">
     <div class="card-body">
@@ -43,45 +51,145 @@
 
   <div *ngIf="!loading">
     <div *ngIf="assignments.length === 0" class="alert alert-light">No assignments for today</div>
-    <div class="table-responsive" *ngIf="assignments.length">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr>
-            <th class="w-date">Date</th>
-            <th class="w-patient">Patient</th>
-            <th class="w-mobile">Mobile</th>
-            <th class="w-room">Room</th>
-            <th class="w-bed">Bed</th>
-            <th class="w-diet">Diet</th>
-            <th class="w-note">Note</th>
-            <th class="w-status">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let a of view">
-            <td>{{a.date | date:'dd-MM-yyyy'}}</td>
-            <td>{{a.patientName}}</td>
-            <td>{{a.phone || '—'}}</td>
-            <td>{{(a.roomType || '—') + ' / ' + (a.roomNo || '—')}}</td>
-            <td>{{a.bed || '—'}}</td>
-            <td>{{a.diet}}</td>
-            <td>{{a.note}}</td>
-            <td>
-              <div class="d-flex align-items-center" style="gap: .25rem;">
+    <!-- Desktop (lg+): table in card with sticky header -->
+    <div class="card d-none d-lg-block" *ngIf="assignments.length">
+      <div class="card-body p-0">
+        <div class="table-container table-responsive">
+          <table class="table table-sm align-middle table-sticky mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Patient</th>
+                <th>Mobile</th>
+                <th>Room</th>
+                <th>Bed</th>
+                <th>Diet</th>
+                <th>Note</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of paged()">
+                <td>{{a.date | date:'dd-MM-yyyy'}}</td>
+                <td>{{a.patientName}}</td>
+                <td>{{a.phone || '—'}}</td>
+                <td>{{a.roomType || '—'}} / {{a.roomNo || '—'}}</td>
+                <td>{{a.bed || '—'}}</td>
+                <td>{{a.diet}}</td>
+                <td>{{a.note}}</td>
+                <td>
+                  <div class="d-flex align-items-center" style="gap: .25rem;">
+                    <div [ngClass]="{
+                      'text-secondary': a.status==='pending',
+                      'text-success': a.status==='delivered',
+                      'text-danger': a.status==='cancelled'
+                    }">{{a.status}}</div>
+                    <button class="btn btn-sm btn-outline-success" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
+                      <span class="spinner-border spinner-border-sm me-1" *ngIf="delivering[a._id || a.id]" role="status" aria-hidden="true"></span>
+                      Deliver
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="small text-muted">
+          Showing {{ (paged().length ? ((page-1)*pageSize + 1) : 0) }}
+          to {{ ((page-1)*pageSize + paged().length) }} of {{ total }}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="100">100</option>
+          </select>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-secondary" (click)="prevPage()" [disabled]="!canPrev()">Prev</button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="!canNext()">Next</button>
+          </div>
+          <div class="small text-muted">Page {{page}} / {{ totalPages() }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile/Tablet: cards -->
+    <div class="row g-2 d-lg-none" *ngIf="assignments.length">
+      <div class="col-12" *ngFor="let a of paged()">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="small text-muted">Date: {{a.date | date:'dd-MM-yyyy'}}</div>
+                <div class="fw-semibold">{{a.patientName}}</div>
+                <div class="small text-muted mt-1">Mobile: {{a.phone || '—'}}</div>
+                <div class="small text-muted">Room: {{a.roomType || '—'}} / {{a.roomNo || '—'}} &nbsp;|&nbsp; Bed: {{a.bed || '—'}}</div>
+              </div>
+              <div class="text-end">
                 <div [ngClass]="{
                   'text-secondary': a.status==='pending',
                   'text-success': a.status==='delivered',
                   'text-danger': a.status==='cancelled'
-                }">{{a.status}}</div>
-                <button class="btn btn-sm btn-outline-success" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
+                }" class="fw-semibold text-capitalize">{{a.status}}</div>
+                <button class="btn btn-sm btn-outline-success mt-1" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
                   <span class="spinner-border spinner-border-sm me-1" *ngIf="delivering[a._id || a.id]" role="status" aria-hidden="true"></span>
                   Deliver
                 </button>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+            <div class="mt-2"><strong>Diet:</strong> {{a.diet}}</div>
+            <div class="text-muted small" *ngIf="a.note"><strong>Note:</strong> {{a.note}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="small text-muted">
+            Showing {{ (paged().length ? ((page-1)*pageSize + 1) : 0) }}
+            to {{ ((page-1)*pageSize + paged().length) }} of {{ total }}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="20">20</option>
+              <option [ngValue]="50">50</option>
+              <option [ngValue]="100">100</option>
+            </select>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" (click)="prevPage()" [disabled]="!canPrev()">Prev</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="!canNext()">Next</button>
+            </div>
+            <div class="small text-muted">Page {{page}} / {{ totalPages() }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diet totals modal -->
+  <div class="modal fade show" tabindex="-1" role="dialog" *ngIf="showTotals" style="display:block; background: rgba(0,0,0,0.3);">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">Today's Diet Totals</h6>
+          <button type="button" class="btn-close" aria-label="Close" (click)="closeTotals()"></button>
+        </div>
+        <div class="modal-body">
+          <div *ngIf="!dietTotals.length" class="text-muted small">No assignments found.</div>
+          <ul class="list-group list-group-flush" *ngIf="dietTotals.length">
+            <li class="list-group-item d-flex justify-content-between align-items-center" *ngFor="let d of dietTotals">
+              <span>{{ d.name }}</span>
+              <span class="badge text-bg-primary rounded-pill">{{ d.count }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-secondary" (click)="closeTotals()">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

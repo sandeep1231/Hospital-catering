@@ -1,3 +1,20 @@
+/* Scrollable table container with sticky header */
+.table-container {
+	max-height: 60vh; /* adjust as needed */
+	overflow: auto;
+}
+
+.table-sticky thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: var(--bs-body-bg);
+}
+
+/* Keep header border visible when sticky */
+.table-sticky thead th {
+	border-top: 0;
+}
 /* patients list styles */
 .card { transition: transform .08s ease; }
 .card:hover { transform: translateY(-2px); }

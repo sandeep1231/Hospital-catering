@@ -33,46 +33,98 @@ router.get('/', auth, async (req: Request, res: Response) => {
   if (statusFilter && allowedStatuses.includes(statusFilter)) cond.status = statusFilter;
 
   const dietStatusFilter = (req.query?.dietStatus ? String(req.query.dietStatus) : '').trim();
-  const limit = q ? 50 : 100;
   let finalCond = { ...cond } as any;
+
+  // pagination params (opt-in). If page/pageSize are provided, return paged response
+  const pageParam = req.query?.page ? parseInt(String(req.query.page), 10) : undefined;
+  const pageSizeParam = req.query?.pageSize ? parseInt(String(req.query.pageSize), 10) : undefined;
+  const wantsPaged = Number.isInteger(pageParam as any) || Number.isInteger(pageSizeParam as any);
+  const page = Math.max(1, pageParam || 1);
+  const pageSize = Math.min(100, Math.max(1, pageSizeParam || 20));
 
   // If filtering by today's diet assignment status, first find patient ids that match
   if (dietStatusFilter && ['pending','delivered','cancelled'].includes(dietStatusFilter)) {
     const prelim = await Patient.find(cond).select('_id').lean();
     const ids = prelim.map(p => p._id);
-    if (ids.length === 0) { return res.json([]); }
-    const start = new Date(); start.setHours(0,0,0,0);
-    const end = new Date(start); end.setHours(23,59,59,999);
-    const aCond: any = { patientId: { $in: ids }, date: { $gte: start, $lte: end } };
+    if (ids.length === 0) {
+      return wantsPaged ? res.json({ items: [], total: 0, page, pageSize }) : res.json([]);
+    }
+    const aCond: any = { patientId: { $in: ids } };
     if (hid) aCond.hospitalId = hid;
     aCond.status = dietStatusFilter;
     const matched = await DietAssignment.find(aCond).select('patientId').lean();
     const allowedIds = Array.from(new Set(matched.map(m => String(m.patientId))));
-    if (allowedIds.length === 0) { return res.json([]); }
+    if (allowedIds.length === 0) {
+      return wantsPaged ? res.json({ items: [], total: 0, page, pageSize }) : res.json([]);
+    }
     finalCond._id = { $in: allowedIds };
   }
 
-  const patients = await Patient.find(finalCond).sort({ inDate: -1, createdAt: -1 }).limit(limit).lean();
+  // If paged mode requested
+  if (wantsPaged) {
+    const total = await Patient.countDocuments(finalCond);
+    const patients = await Patient.find(finalCond)
+      .sort({ inDate: -1, createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
 
-  // attach today's diet status/diet for display filters and table
+    // Attach diet history (recent up to 12)
+    try {
+      const ids = patients.map(p => p._id);
+      if (ids.length) {
+        const aCond: any = { patientId: { $in: ids } };
+        if (hid) aCond.hospitalId = hid;
+        const all = await DietAssignment.find(aCond)
+          .select('patientId status diet date')
+          .sort({ date: -1 })
+          .lean();
+        const histMap = new Map<string, any[]>();
+        for (const a of all) {
+          const k = String(a.patientId);
+          if (!histMap.has(k)) histMap.set(k, []);
+          const arr = histMap.get(k)!;
+          if (arr.length < 12) {
+            arr.push({ date: a.date, status: a.status, diet: a.diet });
+          }
+        }
+        for (const p of patients as any[]) {
+          (p as any).dietHistory = histMap.get(String(p._id)) || [];
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+
+    return res.json({ items: patients, total, page, pageSize });
+  }
+
+  // Legacy non-paged response (limit to prevent overload)
+  const limit = q ? 50 : 100;
+  const patients = await Patient.find(finalCond).sort({ inDate: -1, createdAt: -1 }).limit(limit).lean();
   try {
     const ids = patients.map(p => p._id);
     if (ids.length) {
-      const start = new Date(); start.setHours(0,0,0,0);
-      const end = new Date(start); end.setHours(23,59,59,999);
-      const aCond: any = { patientId: { $in: ids }, date: { $gte: start, $lte: end } };
+      const aCond: any = { patientId: { $in: ids } };
       if (hid) aCond.hospitalId = hid;
-      const todays = await DietAssignment.find(aCond).select('patientId status diet').lean();
-      const map = new Map<string, any>();
-      for (const a of todays) map.set(String(a.patientId), a);
+      const all = await DietAssignment.find(aCond)
+        .select('patientId status diet date')
+        .sort({ date: -1 })
+        .lean();
+      const histMap = new Map<string, any[]>();
+      for (const a of all) {
+        const k = String(a.patientId);
+        if (!histMap.has(k)) histMap.set(k, []);
+        const arr = histMap.get(k)!;
+        if (arr.length < 12) {
+          arr.push({ date: a.date, status: a.status, diet: a.diet });
+        }
+      }
       for (const p of patients as any[]) {
-        const a = map.get(String(p._id));
-        if (a) { p.todayDietStatus = a.status; p.todayDiet = a.diet; }
+        (p as any).dietHistory = histMap.get(String(p._id)) || [];
       }
     }
   } catch (e) { /* non-fatal */ }
 
-  res.json(patients);
+  return res.json(patients);
 });
 
 // GET /api/patients/meta - returns distinct room types and room numbers

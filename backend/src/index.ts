@@ -12,6 +12,7 @@ import reportRoutes from './routes/reports';
 import dietAssignmentRoutes from './routes/dietAssignments';
 import dietTypeRoutes from './routes/dietTypes';
 import Hospital from './models/hospital';
+import { fixIndexes } from './utils/fixIndexes';
 
 dotenv.config();
 
@@ -40,6 +41,8 @@ if (!mongoUri) {
 mongoose.connect(mongoUri)
   .then(async () => {
     console.log('Connected to MongoDB');
+    // One-time index fixes/migrations
+    await fixIndexes();
     // Ensure indexes exist (notably Hospitals name index for faster search/sort)
     try {
       await Hospital.syncIndexes();
