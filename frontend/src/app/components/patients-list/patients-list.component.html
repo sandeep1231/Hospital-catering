@@ -73,7 +73,7 @@
           <tbody>
             <tr *ngFor="let p of patients">
               <td>
-                {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}
+                {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy':'Asia/Kolkata' }}
               </td>
               <td>
                 <div class="fw-medium">{{p.name}}</div>
@@ -91,7 +91,7 @@
                 <!-- Compact history list -->
                 <div class="small text-muted" *ngIf="sortedHistory(p)?.length">
                   <div *ngFor="let h of sortedHistory(p)">
-                    <span>{{ h.date | date:'dd-MM-yyyy' }}:</span>
+                    <span>{{ h.date | date:'dd-MM-yyyy':'Asia/Kolkata' }}:</span>
                     <span class="ms-1">{{ h.diet }}</span>
                     <span class="badge ms-1" [ngClass]="{
                       'bg-success': h.status==='delivered',
@@ -143,7 +143,7 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start">
               <div>
-                <div class="small text-muted">Date: {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy' }}</div>
+                <div class="small text-muted">Date: {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy':'Asia/Kolkata' }}</div>
                 <div class="fw-semibold">{{p.name}}</div>
               </div>
               <div class="d-flex align-items-center gap-2">
@@ -166,7 +166,7 @@
                 <div class="small text-muted mt-1">
                   <ng-container *ngFor="let h of sortedHistory(p) | slice:0:(isHistoryExpanded(p) ? histLen : 5)">
                     <div>
-                      {{ h.date | date:'dd-MM-yyyy' }}: {{ h.diet }}
+                      {{ h.date | date:'dd-MM-yyyy':'Asia/Kolkata' }}: {{ h.diet }}
                       <span class="badge ms-1" [ngClass]="{
                         'bg-success': h.status==='delivered',
                         'bg-warning text-dark': h.status==='pending',

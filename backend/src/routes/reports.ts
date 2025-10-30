@@ -6,53 +6,61 @@ import Hospital from '../models/hospital';
 import dayjs from 'dayjs';
 import DietAssignment from '../models/dietAssignment';
 import mongoose from 'mongoose';
+import { IST_TZ, toIstDayString, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD, istStartOfDayUTCForDate } from '../utils/time';
 
 const router = Router();
 
 
 // Diet supervisor daily view: list all patients with today's assigned diets
 router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
-  const hid = (req as any).user?.hospitalId;
-  const qDate = String((req.query.date as string) || '');
-  const roomType = (req.query.roomType as string) || '';
-  const roomNo = (req.query.roomNo as string) || '';
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const qDate = String((req.query.date as string) || '').trim();
+    const roomType = (req.query.roomType as string) || '';
+    const roomNo = (req.query.roomNo as string) || '';
 
-  let baseDay = dayjs();
-  if (qDate) {
-    const d = dayjs(qDate);
-    if (d.isValid()) baseDay = d;
+    const tz = IST_TZ; // Always use IST for this deployment
+
+    const sel = qDate && dayjs(qDate).isValid() ? qDate : toIstDayString(new Date());
+
+    // Aggregate to strictly match DietAssignment.date by selection date string
+    const pipeline: any[] = [
+      { $addFields: { dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: tz } } } },
+      { $match: { dateStr: sel, ...(hidObj ? { hospitalId: hidObj } : {}) } },
+      { $sort: { date: 1, createdAt: 1 } },
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' }
+    ];
+
+    if (roomType) pipeline.push({ $match: { 'p.roomType': roomType } });
+    if (roomNo) pipeline.push({ $match: { 'p.roomNo': roomNo } });
+
+    pipeline.push({
+      $project: {
+        _id: 0,
+        id: '$_id',
+        date: '$date',
+        patientId: '$p._id',
+        patientName: '$p.name',
+        phone: { $ifNull: ['$p.phone', ''] },
+        roomType: { $ifNull: ['$p.roomType', ''] },
+        roomNo: { $ifNull: ['$p.roomNo', ''] },
+        bed: '$p.bed',
+        diet: '$diet',
+        note: '$note',
+        status: '$status',
+        fromTime: '$fromTime',
+        toTime: '$toTime'
+      }
+    });
+
+    const rows = await DietAssignment.aggregate(pipeline);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load diet supervisor list' });
   }
-  const start = baseDay.startOf('day').toDate();
-  const end = baseDay.endOf('day').toDate();
-
-  const assignments = await DietAssignment.find({ date: { $gte: start, $lte: end }, ...(hid ? { hospitalId: hid } : {}) })
-    .populate('patientId')
-    .sort({ date: 1, createdAt: 1 });
-
-  const rows = assignments
-    .filter(a => {
-      const p: any = a.patientId;
-      if (!p) return false;
-      if (roomType && String(p.roomType || '') !== roomType) return false;
-      if (roomNo && String(p.roomNo || '') !== roomNo) return false;
-      return true;
-    })
-    .map(a => ({
-      id: a._id,
-      date: a.date,
-      patientId: (a.patientId as any)?._id,
-      patientName: (a.patientId as any)?.name,
-      phone: (a.patientId as any)?.phone || '',
-      roomType: (a.patientId as any)?.roomType || '',
-      roomNo: (a.patientId as any)?.roomNo || '',
-      bed: (a.patientId as any)?.bed,
-      diet: a.diet,
-      note: a.note,
-      status: a.status,
-      fromTime: a.fromTime,
-      toTime: a.toTime
-    }));
-  res.json(rows);
 });
 
 // Vendor Business Summary by custom date range
@@ -63,13 +71,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
   try {
     const hid = (req as any).user?.hospitalId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
-    // Build timezone string like "+05:30" from server local timezone to align date-only comparisons
-    const tzMin = -new Date().getTimezoneOffset();
-    const sign = tzMin >= 0 ? '+' : '-';
-    const abs = Math.abs(tzMin);
-    const hh = String(Math.trunc(abs / 60)).padStart(2, '0');
-    const mm = String(abs % 60).padStart(2, '0');
-    const tz = `${sign}${hh}:${mm}`;
+  const tz = IST_TZ; // Fixed IST
     const fromStr = String(req.query.from || '').trim();
     const toStr = String(req.query.to || '').trim();
 
@@ -77,8 +79,9 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
     const fromDay = dayjs(fromStr);
     const toDay = dayjs(toStr);
     if (!fromDay.isValid() || !toDay.isValid()) return res.status(400).json({ error: 'Invalid from/to date' });
-    const start = fromDay.startOf('day').toDate();
-    const end = toDay.endOf('day').toDate();
+    // Compute IST day boundaries in UTC
+    const start = istStartOfDayUTCFromYMD(fromStr);
+    const end = istEndOfDayUTCFromYMD(toStr);
 
     // Only include patients whose inDate and dischargeDate are BOTH within the [from,to] window
     const matchPatients: any = {
@@ -200,24 +203,24 @@ router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: R
   try {
     const hid = (req as any).user?.hospitalId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
-    const tzMin = -new Date().getTimezoneOffset();
-    const sign = tzMin >= 0 ? '+' : '-';
-    const abs = Math.abs(tzMin);
-    const hh = String(Math.trunc(abs / 60)).padStart(2, '0');
-    const mm = String(abs % 60).padStart(2, '0');
-    const tz = `${sign}${hh}:${mm}`;
+    const tz = IST_TZ; // Fixed IST
 
     const fromStr = String(req.query.from || '').trim();
     const toStr = String(req.query.to || '').trim();
     const gran = String(req.query.granularity || 'daily'); // daily | weekly | monthly
     const now = dayjs();
-    const fromDay = fromStr ? dayjs(fromStr) : now.subtract(30, 'day');
-    const toDay = toStr ? dayjs(toStr) : now;
+  const fromDay = fromStr ? dayjs(fromStr) : now.subtract(30, 'day');
+  const toDay = toStr ? dayjs(toStr) : now;
     if (!fromDay.isValid() || !toDay.isValid()) return res.status(400).json({ error: 'Invalid from/to date' });
-    const start = fromDay.startOf('day').toDate();
-    const end = toDay.endOf('day').toDate();
+  // Use IST day boundaries in UTC for base match
+  const start = fromStr ? istStartOfDayUTCFromYMD(fromStr) : istStartOfDayUTCForDate(fromDay.toDate());
+  const end = toStr ? istEndOfDayUTCFromYMD(toStr) : new Date(istStartOfDayUTCForDate(toDay.toDate()).getTime() + (24*60*60*1000) - 1);
 
-    const baseMatch: any = { date: { $gte: start, $lte: end }, status: 'delivered' };
+    const baseMatch: any = { date: { $gte: start, $lte: end } };
+    const statusParam = String(req.query.status || 'delivered').trim().toLowerCase();
+    if (statusParam && statusParam !== 'all') {
+      baseMatch.status = statusParam;
+    }
     if (hidObj) baseMatch.hospitalId = hidObj;
 
     // Helper: bucket expression per granularity as a string field 'bucket'

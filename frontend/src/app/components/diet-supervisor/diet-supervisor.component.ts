@@ -39,7 +39,7 @@ export class DietSupervisorComponent implements OnInit {
   }
   load() {
     this.loading = true;
-    const params: any = { date: this.date };
+    const params: any = { date: this.date, tz: this.getBrowserTz() };
     if (this.roomType) params.roomType = this.roomType;
     if (this.roomNo) params.roomNo = this.roomNo;
     this.api.get('/reports/diet-supervisor/today', params).subscribe((res:any) => {
@@ -48,6 +48,18 @@ export class DietSupervisorComponent implements OnInit {
   this.applyQuickFilter();
       this.loading = false;
     }, err => { console.error(err); this.toast.error('Failed to load list'); this.loading = false; });
+  }
+
+  private getBrowserTz(): string {
+    // window offset is minutes behind UTC as positive for places west; convert to +HH:MM string
+    try {
+      const offMin = -new Date().getTimezoneOffset(); // invert to get sign consistent with +05:30 for IST
+      const sign = offMin >= 0 ? '+' : '-';
+      const abs = Math.abs(offMin);
+      const hh = String(Math.trunc(abs / 60)).padStart(2, '0');
+      const mm = String(abs % 60).padStart(2, '0');
+      return `${sign}${hh}:${mm}`;
+    } catch { return '+00:00'; }
   }
   markDelivered(a: any) {
     if (!confirm('Mark this assignment as delivered?')) return;

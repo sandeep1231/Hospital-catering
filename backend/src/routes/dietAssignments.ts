@@ -4,6 +4,7 @@ import { requireRole } from '../middleware/roles';
 import DietAssignment from '../models/dietAssignment';
 import Patient from '../models/patient';
 import dayjs from 'dayjs';
+import { istStartOfDayUTCForDate, addIstDaysUTC, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD } from '../utils/time';
 
 const router = Router();
 
@@ -15,9 +16,8 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
     const hid = (req as any).user?.hospitalId;
     const patient = await Patient.findOne({ _id: patientId, ...(hid ? { hospitalId: hid } : {}) });
     if (!patient) return res.status(404).json({ message: 'patient not found' });
-    const d = new Date(date);
-    // normalize to start of day to avoid duplicates/mismatches
-    d.setHours(0,0,0,0);
+  // normalize to IST start of day to avoid duplicates/mismatches
+  const d = istStartOfDayUTCFromYMD(String(date));
     if (isNaN(d.getTime())) return res.status(400).json({ message: 'invalid date' });
 
     // prevent adding assignments after discharge
@@ -77,7 +77,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
     const id = req.params.id;
     const { date, fromTime, toTime, diet, note, price, status } = req.body || {};
     const body: any = {};
-    if (date) { const d = new Date(date); if (!isNaN(d.getTime())) body.date = d; }
+  if (date) { const d = istStartOfDayUTCFromYMD(String(date)); if (!isNaN(d.getTime())) body.date = d; }
     if (fromTime !== undefined) body.fromTime = String(fromTime || '');
     if (toTime !== undefined) body.toTime = String(toTime || '');
     if (diet) {
@@ -127,26 +127,25 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), async (req: R
     const hid = (req as any).user?.hospitalId;
     const patient = await Patient.findOne({ _id: patientId, ...(hid ? { hospitalId: hid } : {}) });
     if (!patient) return res.status(404).json({ message: 'patient not found' });
-    const start = new Date(startDate);
-    if (isNaN(start.getTime())) return res.status(400).json({ message: 'invalid startDate' });
+  const start = istStartOfDayUTCFromYMD(String(startDate));
+  if (isNaN(start.getTime())) return res.status(400).json({ message: 'invalid startDate' });
 
     let end: Date | null = null;
     if (untilDischarge && patient.dischargeDate) {
-      end = new Date(patient.dischargeDate);
+  end = istStartOfDayUTCForDate(new Date(patient.dischargeDate));
     } else if (Number.isInteger(days) && days > 0) {
-      end = new Date(start);
-      end.setDate(end.getDate() + (days - 1));
+  end = addIstDaysUTC(start, days - 1);
     } else {
       return res.status(400).json({ message: 'provide days>0 or set untilDischarge with patient.dischargeDate' });
     }
 
     // Cap end at discharge date if present
     if (patient.dischargeDate) {
-      const dch = new Date(patient.dischargeDate);
+      const dch = istStartOfDayUTCForDate(new Date(patient.dischargeDate));
       if (end > dch) end = dch;
     }
 
-    // load default price
+    // load default price for the diet
     let defaultPrice = 0;
     try {
       const DietType = require('../models/dietType').default;
@@ -156,23 +155,13 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), async (req: R
 
     const results: any[] = [];
     const dayMs = 24 * 60 * 60 * 1000;
-    for (let t = new Date(start).setHours(0,0,0,0); t <= end.setHours(0,0,0,0); t += dayMs) {
+    const startDay = start;
+    const endDay = end!;
+    for (let t = startDay.getTime(); t <= endDay.getTime(); t += dayMs) {
       const day = new Date(t);
-      const existing = await DietAssignment.findOne({ patientId, date: day, ...(hid ? { hospitalId: hid } : {}) });
-      if (existing) {
-        if (overwriteExisting && existing.status !== 'delivered') {
-          existing.diet = diet;
-          if (note !== undefined) existing.note = String(note || '');
-          existing.price = defaultPrice;
-          await existing.save();
-          results.push({ date: day, action: 'updated', id: existing._id });
-        } else {
-          results.push({ date: day, action: 'skipped', reason: existing.status === 'delivered' ? 'delivered' : 'exists' });
-        }
-      } else {
-        const created = await DietAssignment.create({ patientId, hospitalId: hid, date: day, diet, note, status: 'pending', price: defaultPrice });
-        results.push({ date: day, action: 'created', id: created._id });
-      }
+      // Always create a new assignment even if one exists for that day
+      const created = await DietAssignment.create({ patientId, hospitalId: hid, date: day, diet, note, status: 'pending', price: defaultPrice });
+      results.push({ date: day, action: 'created', id: created._id });
     }
 
     res.json({ count: results.length, results });
@@ -190,19 +179,19 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), async (req:
     const hid = (req as any).user?.hospitalId;
     const patient = await Patient.findOne({ _id: patientId, ...(hid ? { hospitalId: hid } : {}) });
     if (!patient) return res.status(404).json({ message: 'patient not found' });
-    const start = new Date(startDate);
-    if (isNaN(start.getTime())) return res.status(400).json({ message: 'invalid startDate' });
+  const start = istStartOfDayUTCFromYMD(String(startDate));
+  if (isNaN(start.getTime())) return res.status(400).json({ message: 'invalid startDate' });
     let end: Date | null = null;
     if (untilDischarge && patient.dischargeDate) {
-      end = new Date(patient.dischargeDate);
+  end = istStartOfDayUTCForDate(new Date(patient.dischargeDate));
     } else if (endDate) {
-      const e = new Date(endDate); if (isNaN(e.getTime())) return res.status(400).json({ message: 'invalid endDate' }); end = e;
+  const e = istStartOfDayUTCFromYMD(String(endDate)); if (isNaN(e.getTime())) return res.status(400).json({ message: 'invalid endDate' }); end = e;
     } else {
       // Default end = start when not provided and not untilDischarge
       end = new Date(start);
     }
     if (patient.dischargeDate) {
-      const dch = new Date(patient.dischargeDate);
+      const dch = istStartOfDayUTCForDate(new Date(patient.dischargeDate));
       if (end > dch) end = dch;
     }
 
@@ -216,23 +205,13 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), async (req:
 
     const results: any[] = [];
     const dayMs = 24 * 60 * 60 * 1000;
-    for (let t = new Date(start).setHours(0,0,0,0); t <= end.setHours(0,0,0,0); t += dayMs) {
+    const startDay = start;
+    const endDay = end!;
+    for (let t = startDay.getTime(); t <= endDay.getTime(); t += dayMs) {
       const day = new Date(t);
-      const existing = await DietAssignment.findOne({ patientId, date: day, ...(hid ? { hospitalId: hid } : {}) });
-      if (existing) {
-        if (existing.status === 'delivered') {
-          results.push({ date: day, action: 'skipped', reason: 'delivered' });
-        } else {
-          existing.diet = newDiet;
-          if (note !== undefined) existing.note = String(note || '');
-          existing.price = price;
-          await existing.save();
-          results.push({ date: day, action: 'updated', id: existing._id });
-        }
-      } else {
-        const created = await DietAssignment.create({ patientId, hospitalId: hid, date: day, diet: newDiet, note, status: 'pending', price });
-        results.push({ date: day, action: 'created', id: created._id });
-      }
+      // Always create a new assignment for change action
+      const created = await DietAssignment.create({ patientId, hospitalId: hid, date: day, diet: newDiet, note, status: 'pending', price });
+      results.push({ date: day, action: 'created', id: created._id });
     }
 
     res.json({ count: results.length, results });
@@ -246,8 +225,8 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), async (req:
 router.post('/generate-today', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const start = dayjs().startOf('day').toDate();
-    const end = dayjs().endOf('day').toDate();
+  const { start } = { start: istStartOfDayUTCForDate(new Date()) };
+  const end = new Date(start.getTime() + 24*60*60*1000 - 1);
     // find all patients in this hospital with a current diet, not discharged before today
     const cond: any = { ...(hid ? { hospitalId: hid } : {}), status: { $ne: 'discharged' } };
     const patients = await Patient.find(cond).lean();
@@ -265,7 +244,7 @@ router.post('/generate-today', auth, requireRole('admin','diet-supervisor'), asy
       if (!p.diet) { results.push({ patientId: p._id, action: 'skipped', reason: 'no diet' }); continue; }
       // if patient has dischargeDate in the past, skip
       if (p.dischargeDate && new Date(p.dischargeDate) < start) { results.push({ patientId: p._id, action: 'skipped', reason: 'discharged' }); continue; }
-      const existing = await DietAssignment.findOne({ patientId: p._id, date: { $gte: start, $lte: end }, ...(hid ? { hospitalId: hid } : {}) });
+  const existing = await DietAssignment.findOne({ patientId: p._id, date: { $gte: start, $lte: end }, ...(hid ? { hospitalId: hid } : {}) });
       if (existing) { results.push({ patientId: p._id, action: 'skipped', reason: 'exists' }); continue; }
       const created = await DietAssignment.create({ patientId: p._id, hospitalId: hid, date: start, diet: p.diet, note: p.dietNote || '', status: 'pending', price: priceMap[p.diet] || 0 });
       results.push({ patientId: p._id, action: 'created', id: created._id });

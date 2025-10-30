@@ -36,6 +36,7 @@ export class ReportsDashboardComponent implements OnInit {
   analyticsFrom: string = new Date(Date.now() - 29*86400000).toISOString().substring(0,10);
   analyticsTo: string = new Date().toISOString().substring(0,10);
   analyticsGran: 'daily'|'weekly'|'monthly' = 'daily';
+  analyticsStatus: 'delivered' | 'all' | 'pending' | 'cancelled' = 'delivered';
 
   // ECharts option objects
   optsOverTime: any;
@@ -71,6 +72,29 @@ export class ReportsDashboardComponent implements OnInit {
     const c = hex.replace('#','');
     const r = parseInt(c.substring(0,2),16), g = parseInt(c.substring(2,4),16), b = parseInt(c.substring(4,6),16);
     return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  // Build x-axis label config based on label count
+  private axisLabelFor(count: number) {
+    // thresholds tuned for daily labels; weekly/monthly will have fewer
+    if (count > 80) {
+      return { show: false };
+    } else if (count > 28) {
+      return { show: true, hideOverlap: true, interval: 'auto', rotate: 45, margin: 8, showMaxLabel: true, showMinLabel: true };
+    } else {
+      return { show: true, hideOverlap: true, interval: 'auto', rotate: 0, margin: 10, showMaxLabel: true, showMinLabel: true };
+    }
+  }
+
+  // Conditionally add dataZoom for dense x-axes
+  private dataZoomFor(count: number) {
+    if (count > 20) {
+      return [
+        { type: 'slider', height: 18, bottom: 8, start: 0, end: 100 },
+        { type: 'inside' }
+      ];
+    }
+    return [];
   }
 
   loadSummary() {
@@ -174,7 +198,7 @@ export class ReportsDashboardComponent implements OnInit {
   }
 
   loadAnalytics() {
-    const params = { from: this.analyticsFrom, to: this.analyticsTo, granularity: this.analyticsGran } as any;
+    const params = { from: this.analyticsFrom, to: this.analyticsTo, granularity: this.analyticsGran, status: this.analyticsStatus } as any;
   this.api.get('/reports/analytics', params).subscribe({
       next: (res: any) => {
         const labels: string[] = res.overTime?.labels || [];
@@ -183,11 +207,13 @@ export class ReportsDashboardComponent implements OnInit {
         const colors = diets.map((_: any, i: number) => this.pick(i));
 
         // Over Time (stacked bar)
+        const overAxisLabel = this.axisLabelFor(labels.length);
+        const overDataZoom = this.dataZoomFor(labels.length);
         this.optsOverTime = {
           color: colors,
           tooltip: { trigger: 'axis' },
           legend: { bottom: 0 },
-          grid: { left: 64, right: 40, top: 36, bottom: 56, containLabel: true },
+          grid: { left: 64, right: 40, top: 36, bottom: overDataZoom.length ? 80 : 56, containLabel: true },
           xAxis: {
             type: 'category',
             data: labels,
@@ -197,7 +223,7 @@ export class ReportsDashboardComponent implements OnInit {
             nameRotate: 0,
             axisTick: { alignWithLabel: true },
             boundaryGap: true,
-            axisLabel: { margin: 10, showMaxLabel: true, showMinLabel: true, hideOverlap: false },
+            axisLabel: overAxisLabel,
             nameTextStyle: { fontWeight: 600 }
           },
           yAxis: {
@@ -208,6 +234,7 @@ export class ReportsDashboardComponent implements OnInit {
             nameGap: 48,
             nameTextStyle: { fontWeight: 600 }
           },
+          dataZoom: overDataZoom,
           series: diets.map((ds: any, i: number) => ({
             name: ds.label,
             type: 'bar',
@@ -230,7 +257,7 @@ export class ReportsDashboardComponent implements OnInit {
           acc.push((acc.length ? acc[acc.length - 1] : 0) + (Number(val) || 0));
           return acc;
         }, [] as number[]);
-        this.updateRevenueOptions();
+  this.updateRevenueOptions();
 
         // By room type (stacked bar)
         const roomLabels: string[] = res.byRoomType?.labels || [];
@@ -321,10 +348,12 @@ export class ReportsDashboardComponent implements OnInit {
   private updateRevenueOptions() {
     const revColor = '#28a745';
     const seriesData = this.revenueMode === 'cumulative' ? this.revCumulative : this.revDaily;
+    const axisLabelCfg = this.axisLabelFor(this.revLabels.length);
+    const dz = this.dataZoomFor(this.revLabels.length);
     this.optsRevenue = {
       color: [revColor],
       tooltip: { trigger: 'axis', valueFormatter: (v: any) => `₹ ${Number(v||0).toLocaleString()}` },
-      grid: { left: 64, right: 60, top: 36, bottom: 46, containLabel: true },
+      grid: { left: 64, right: 60, top: 36, bottom: dz.length ? 70 : 46, containLabel: true },
       xAxis: {
         type: 'category',
         data: this.revLabels,
@@ -333,7 +362,7 @@ export class ReportsDashboardComponent implements OnInit {
         nameGap: 28,
         nameRotate: 0,
             boundaryGap: false,
-        axisLabel: { margin: 8, showMaxLabel: true, showMinLabel: true, hideOverlap: false },
+        axisLabel: axisLabelCfg,
         nameTextStyle: { fontWeight: 600 }
       },
       yAxis: {
@@ -344,6 +373,7 @@ export class ReportsDashboardComponent implements OnInit {
         nameGap: 48,
         nameTextStyle: { fontWeight: 600 }
       },
+      dataZoom: dz,
       series: [{
         name: this.revenueMode === 'cumulative' ? 'Cumulative Revenue' : 'Revenue',
         type: 'line', smooth: true,

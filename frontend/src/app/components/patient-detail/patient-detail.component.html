@@ -208,7 +208,7 @@
           </thead>
           <tbody>
             <tr *ngFor="let a of filtered">
-              <td>{{a.date | date:'mediumDate'}}</td>
+              <td>{{a.date | date:'mediumDate':'Asia/Kolkata'}}</td>
               <td>
                 <span class="me-2">{{a.diet}}</span>
                 <span class="badge bg-secondary" *ngIf="a.status==='pending'">Pending</span>

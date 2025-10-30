@@ -16,6 +16,9 @@ import { fixIndexes } from './utils/fixIndexes';
 
 dotenv.config();
 
+// Force process timezone to IST to keep any implicit date ops consistent
+process.env.TZ = 'Asia/Kolkata';
+
 const app = express();
 app.use(compression());
 app.use(cors({ origin: true, credentials: true, maxAge: 86400 }));

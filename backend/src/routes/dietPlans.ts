@@ -4,7 +4,7 @@ import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import Order from '../models/order';
 import MenuItem from '../models/menuItem';
-import Patient from '../models/patient';
+import { istStartOfDayUTCForDate } from '../utils/time';
 
 const router = Router();
 
@@ -19,18 +19,12 @@ router.post('/', auth, requireRole('dietician', 'admin'), async (req: Request, r
   const p = new DietPlan({ ...req.body, hospitalId: hid });
   await p.save();
 
-  // if plan is assigned to a patient, update patient's diet summary to plan name
-  try {
-    if ((p as any).patientId) {
-      await Patient.findOneAndUpdate({ _id: (p as any).patientId, ...(hid ? { hospitalId: hid } : {}) }, { diet: (p as any).name || 'Active diet plan' });
-    }
-  } catch (e) { console.error('Failed to update patient diet after plan create', e); }
-
   let createdOrder = null;
   try {
+    // If a patient is selected, create an order for the plan's start date (immediate order)
     if (p.patientId && p.startDate) {
-      const d = new Date(p.startDate);
-      const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const d = new Date(p.startDate);
+  const dateOnly = istStartOfDayUTCForDate(d);
       const firstMeals = Array.isArray((p as any).days) && (p as any).days.length > 0 ? (p as any).days[0].meals || [] : [];
       const items: any[] = [];
       for (const meal of firstMeals) {

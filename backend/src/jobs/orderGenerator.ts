@@ -3,23 +3,25 @@ import DietPlan from '../models/dietPlan';
 import Order from '../models/order';
 import Patient from '../models/patient';
 import MenuItem from '../models/menuItem';
+import { istStartOfDayUTCFromYMD, toIstDayString, istDayOfWeekFromYMD } from '../utils/time';
 
 export default function setupAgenda(mongoConnString: string) {
   const agenda = new Agenda({ db: { address: mongoConnString, collection: 'agendaJobs' } });
 
   agenda.define('generate-todays-orders', async (job: any) => {
-    const today = new Date();
-    const dateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    // Compute IST today date-only and a UTC Date representing IST midnight
+    const ymd = toIstDayString(new Date());
+    const dateOnly = istStartOfDayUTCFromYMD(ymd);
 
-    // find active plans and expand
+    // find active plans and expand (inclusive range around IST-normalized date)
     const plans = await DietPlan.find({ startDate: { $lte: dateOnly }, $or: [{ endDate: { $exists: false } }, { endDate: { $gte: dateOnly } }] });
 
     for (const plan of plans) {
       // simple handling: if recurrence none and startDate != today skip
       if ((plan as any).recurrence === 'none') {
         const s = new Date((plan as any).startDate);
-        const same = s.getFullYear() === dateOnly.getFullYear() && s.getMonth() === dateOnly.getMonth() && s.getDate() === dateOnly.getDate();
-        if (!same) continue;
+        const sYmd = toIstDayString(s);
+        if (sYmd !== ymd) continue;
       }
 
       // check if order already generated for this plan and date
@@ -27,7 +29,8 @@ export default function setupAgenda(mongoConnString: string) {
       if (exists) continue;
 
       // pick dayIndex
-      let dayIndex = (dateOnly.getDay() + 6) % 7; // convert Sunday(0) to 6, Monday=0
+  const dow = istDayOfWeekFromYMD(ymd); // 0=Sun..6=Sat in IST
+  let dayIndex = (dow + 6) % 7; // convert Sunday(0) to 6, Monday=0 consistent with previous logic
       let day = ((plan as any).days as any[]).find((d: any) => d.dayIndex === dayIndex) || (plan as any).days[0];
       if (!day) continue;
 

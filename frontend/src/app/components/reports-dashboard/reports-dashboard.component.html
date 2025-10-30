@@ -163,6 +163,13 @@
           </select>
         </div>
         <div class="col-auto">
+          <label class="form-label">Status</label>
+          <select class="form-select form-select-sm" [(ngModel)]="analyticsStatus">
+            <option value="delivered">Delivered only</option>
+            <option value="all">All statuses</option>
+          </select>
+        </div>
+        <div class="col-auto">
           <button class="btn btn-sm btn-primary" (click)="loadAnalytics()">Run</button>
         </div>
       </div>

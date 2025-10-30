@@ -3,6 +3,7 @@ import Order from '../models/order';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import AuditLog from '../models/auditLog';
+import { istStartOfDayUTCFromYMD, istStartOfDayUTCForDate } from '../utils/time';
 import MenuItem from '../models/menuItem';
 
 const router = Router();
@@ -15,8 +16,8 @@ async function writeAudit(entity: string, entityId: any, action: string, user: a
 // list orders for a date
 router.get('/', auth, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const date = req.query.date ? new Date(String(req.query.date)) : new Date();
-  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dateStr = req.query.date ? String(req.query.date) : undefined;
+  const dateOnly = dateStr ? istStartOfDayUTCFromYMD(dateStr) : istStartOfDayUTCForDate(new Date());
   const cond: any = { date: dateOnly };
   if (user?.hospitalId) cond.hospitalId = user.hospitalId;
   const orders = await Order.find(cond).limit(500).populate('items.menuItemId').populate('items.patientId');
@@ -28,8 +29,7 @@ router.post('/', auth, requireRole('dietician','admin'), async (req: Request, re
   const user = (req as any).user;
   const { date, items, notes } = req.body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'items required' });
-  const d = date ? new Date(date) : new Date();
-  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dateOnly = date ? istStartOfDayUTCFromYMD(String(date)) : istStartOfDayUTCForDate(new Date());
   // allow mealSlot to be passed from client (optional) and compute unitPrice
   const normalizedItems = await Promise.all(items.map(async (it: any) => {
     const menu = await MenuItem.findById(it.menuItemId).lean();
@@ -39,8 +39,7 @@ router.post('/', auth, requireRole('dietician','admin'), async (req: Request, re
       quantity: it.quantity || 1,
       notes: it.notes,
       mealSlot: it.mealSlot,
-      unitPrice: (menu?.price as number) || 0,
-      deliveryStatus: 'pending'
+      unitPrice: (menu?.price as number) || 0
     };
   }));
   const order = await Order.create({ date: dateOnly, items: normalizedItems, notes, kitchenStatus: 'pending', deliveryStatus: 'pending', hospitalId: user?.hospitalId });
@@ -77,24 +76,6 @@ router.put('/:id/status', auth, requireRole('admin'), async (req: Request, res: 
   if (!updated) return res.status(404).json({ message: 'not found' });
   await writeAudit('Order', updated._id, 'adminStatusUpdate', user, { kitchenStatus, deliveryStatus });
   res.json(updated);
-});
-
-// per-item mark delivered and roll up order deliveryStatus
-router.put('/:orderId/items/:idx/deliver', auth, requireRole('delivery','admin'), async (req: Request, res: Response) => {
-  const user = (req as any).user;
-  const { orderId, idx } = req.params as any;
-  const order: any = await Order.findOne({ _id: orderId, ...(user?.hospitalId ? { hospitalId: user.hospitalId } : {}) });
-  if (!order) return res.status(404).json({ message: 'not found' });
-  const i = Number(idx);
-  if (!Number.isInteger(i) || i < 0 || i >= order.items.length) return res.status(400).json({ message: 'bad item index' });
-  order.items[i].deliveryStatus = 'delivered';
-  // if all delivered, set order deliveryStatus delivered else pending
-  const allDelivered = order.items.every((it: any) => it.deliveryStatus === 'delivered');
-  order.deliveryStatus = allDelivered ? 'delivered' : 'pending';
-  await order.save();
-  await writeAudit('Order', order._id, 'itemDelivered', user, { itemIndex: i });
-  const populated = await Order.findById(order._id).populate('items.menuItemId').populate('items.patientId');
-  res.json(populated);
 });
 
 // bulk deliver (admin only)

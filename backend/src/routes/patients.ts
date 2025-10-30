@@ -4,6 +4,7 @@ import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import AuditLog from '../models/auditLog';
 import DietAssignment from '../models/dietAssignment';
+import { istStartOfDayUTCForDate } from '../utils/time';
 
 const router = Router();
 
@@ -62,7 +63,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
 
   // If paged mode requested
   if (wantsPaged) {
-    const total = await Patient.countDocuments(finalCond);
+  const total = await Patient.countDocuments(finalCond);
     const patients = await Patient.find(finalCond)
       .sort({ inDate: -1, createdAt: -1 })
       .skip((page - 1) * pageSize)
@@ -77,7 +78,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
         if (hid) aCond.hospitalId = hid;
         const all = await DietAssignment.find(aCond)
           .select('patientId status diet date')
-          .sort({ date: -1 })
+          .sort({ date: -1, createdAt: -1 })
           .lean();
         const histMap = new Map<string, any[]>();
         for (const a of all) {
@@ -107,7 +108,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
       if (hid) aCond.hospitalId = hid;
       const all = await DietAssignment.find(aCond)
         .select('patientId status diet date')
-        .sort({ date: -1 })
+        .sort({ date: -1, createdAt: -1 })
         .lean();
       const histMap = new Map<string, any[]>();
       for (const a of all) {
@@ -304,8 +305,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
         if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
       } catch (e) { /* ignore */ }
 
-      const day = new Date(cleaned.inDate || new Date());
-      day.setHours(0,0,0,0);
+  const day = istStartOfDayUTCForDate(cleaned.inDate ? new Date(cleaned.inDate) : new Date());
       const assign = {
         patientId: p._id,
         hospitalId: hid,
@@ -348,30 +348,28 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
     // write audit
     try { await AuditLog.create({ entity: 'Patient', entityId: updated!._id, action: 'update', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
 
-    // If diet changed, update today's pending assignment to reflect the new diet
+    // If diet changed in detail form, modify the latest assignment instead of creating a new one
     try {
       if (cleaned.diet && cleaned.diet !== existing.diet) {
-        const start = new Date(); start.setHours(0,0,0,0);
-        const end = new Date(start); end.setHours(23,59,59,999);
         const DietAssignment = require('../models/dietAssignment').default;
-        const cond: any = { patientId: existing._id, date: { $gte: start, $lte: end } };
-        if (hid) cond.hospitalId = hid;
-        const today = await DietAssignment.findOne(cond);
-        if (today && today.status === 'pending') {
+        const latest = await DietAssignment.findOne({ patientId: existing._id, ...(hid ? { hospitalId: hid } : {}) })
+          .sort({ date: -1, createdAt: -1 });
+        if (latest) {
+          // resolve price for the updated diet
           let priceForAssign = 0;
           try {
             const DietType = require('../models/dietType').default;
             const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}) }).lean();
             if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
           } catch (e) {}
-          today.diet = cleaned.diet;
-          if (cleaned.dietNote !== undefined) today.note = cleaned.dietNote || '';
-          today.price = priceForAssign;
-          await today.save();
-          try { await AuditLog.create({ entity: 'DietAssignment', entityId: today._id, action: 'update', userId: (req as any).user?.id || null, details: { diet: cleaned.diet, note: cleaned.dietNote, price: priceForAssign } }); } catch {}
+          latest.diet = cleaned.diet;
+          if (cleaned.dietNote !== undefined) latest.note = cleaned.dietNote || '';
+          latest.price = priceForAssign;
+          await latest.save();
+          try { await AuditLog.create({ entity: 'DietAssignment', entityId: latest._id, action: 'update', userId: (req as any).user?.id || null, details: { diet: cleaned.diet, note: cleaned.dietNote, price: priceForAssign } }); } catch {}
         }
       }
-    } catch (e) { console.error('update today assignment on diet change failed', e); }
+    } catch (e) { console.error('modify latest assignment on diet change failed', e); }
     res.json(updated);
   } catch (err: any) {
     if (err?.code === 11000 && err?.keyPattern?.code) return res.status(400).json({ errors: [{ field: 'code', message: 'code already exists' }] });

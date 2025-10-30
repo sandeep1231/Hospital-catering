@@ -93,7 +93,22 @@ export class PatientDetailComponent implements OnInit {
     if (!id) return;
   this.api.get(`/diet-assignments/patient/${id}`).subscribe((res: any) => {
       const arr = Array.isArray(res) ? res : [];
-      this.assignments = arr.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // sort by date desc, then createdAt desc if available
+      this.assignments = arr.sort((a,b) => {
+        const da = new Date(a.date).getTime();
+        const db = new Date(b.date).getTime();
+        if (db !== da) return db - da;
+        const ca = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const cb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return cb - ca;
+      });
+      // Always display the latest assigned diet (irrespective of status) in the form view
+      const latest = this.assignments[0];
+      if (latest && this.patient) {
+        this.patient.diet = latest.diet;
+        // optionally reflect note
+        if (latest.note !== undefined) this.patient.dietNote = latest.note;
+      }
       this.applyFilter();
   }, (err) => { console.error(err); this.toast.error('Failed to load diet assignments'); });
   }
@@ -183,7 +198,10 @@ export class PatientDetailComponent implements OnInit {
     this.api.put('/patients/' + id, this.patient).subscribe((res:any) => {
       const wasDischarged = status === 'discharged';
       this.toast.success(wasDischarged ? 'Patient discharged and saved' : 'Patient details saved');
-      this.patient = res; this.isSaving = false; }, err => {
+      this.patient = res; this.isSaving = false; 
+      // refresh assignments so UI shows updated latest diet
+      this.loadAssignments();
+    }, err => {
       if (err?.status === 400 && err.error?.errors) {
         this.serverErrors = Array.isArray(err.error.errors) ? err.error.errors : [{ message: String(err.error.errors) }];
         this.mapStructuredErrors(this.serverErrors);
@@ -211,6 +229,7 @@ export class PatientDetailComponent implements OnInit {
     const payload = { patientId: id, ...this.bulk };
     this.api.post('/diet-assignments/bulk', payload).subscribe((res:any) => {
       this.toast.success(`Bulk assign done (${res?.count || 0})`);
+      // reload to reflect multiple same-day assignments
       this.loadAssignments();
     }, err => { this.toast.error(err?.error?.message || 'Bulk assign failed'); console.error(err); });
   }
@@ -222,6 +241,7 @@ export class PatientDetailComponent implements OnInit {
     this.changeDietLoading = true;
     this.api.post('/diet-assignments/change', payload).subscribe((res:any) => {
       this.toast.success(`Diet changed (${res?.count || 0})`);
+      // reload to reflect per-day new assignments created by change
       this.loadAssignments();
       // clear form
       this.changeDiet = { startDate: '', endDate: '', untilDischarge: true, newDiet: undefined, note: '' };
