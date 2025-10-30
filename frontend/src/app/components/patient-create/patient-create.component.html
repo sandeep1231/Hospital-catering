@@ -195,3 +195,12 @@
     </div>
   </div>
 </div>
+
+<!-- Page-level loader overlay during save -->
+<div *ngIf="saving" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background: rgba(255,255,255,0.6); z-index: 1100;">
+  <div class="text-center">
+    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+    <div class="mt-2 fw-semibold">Saving...</div>
+  </div>
+  <span class="visually-hidden">Saving...</span>
+</div>

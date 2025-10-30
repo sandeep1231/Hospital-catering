@@ -35,7 +35,9 @@ export class PatientCreateComponent {
     this.dietsLoading = true;
     this.dietLoadError = null;
     this.api.get('/diets').subscribe((res: any) => {
-      this.dietOptions = Array.isArray(res) ? res : [];
+      const list = Array.isArray(res) ? res : [];
+      // Only show active diets in dropdown
+      this.dietOptions = list.filter((d: any) => d && (d.active === true || d.active === undefined));
       this.dietsLoading = false;
     }, err => {
       console.error('failed to load diets', err);
@@ -49,7 +51,7 @@ export class PatientCreateComponent {
     e.preventDefault();
     this.serverErrors = [];
     this.fieldErrors = {};
-    if (!this.clientValidate()) return;
+    if (!this.clientValidate()) { this.toast.error('Please correct the highlighted fields'); return; }
     // removed recurringDetails parsing
     // convert 12h selections to 24h HH:MM strings
     const to24h = (hh: string, mm: string, ap: 'AM'|'PM'): string | '' => {
@@ -66,14 +68,15 @@ export class PatientCreateComponent {
     this.model.inTime = to24h(this.inHour, this.inMinute, this.inAmpm) || '';
     this.model.dischargeTime = to24h(this.dischargeHour, this.dischargeMinute, this.dischargeAmpm) || '';
 
-    this.saving = true;
-    this.api.post('/patients', this.model).subscribe((res:any) => { this.toast.success('Patient created'); this.router.navigate(['/patients']); this.saving = false; }, err => {
+  this.saving = true;
+    this.api.post('/patients', this.model).subscribe((res:any) => { this.toast.success('Patient created successfully'); this.router.navigate(['/patients']); this.saving = false; }, err => {
       if (err?.status === 400 && err.error?.errors) {
         // expect structured errors { field?, message }
         this.serverErrors = Array.isArray(err.error.errors) ? err.error.errors : [{ message: String(err.error.errors) }];
         this.mapStructuredErrors(this.serverErrors);
+        this.toast.error('Please correct the highlighted fields');
       } else {
-        this.toast.error('Create failed');
+        this.toast.error(err?.error?.message || 'Failed to create patient');
         console.error(err);
       }
       this.saving = false;

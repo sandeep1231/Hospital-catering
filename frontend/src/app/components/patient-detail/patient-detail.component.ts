@@ -18,7 +18,10 @@ export class PatientDetailComponent implements OnInit {
   changeDiet: any = { startDate: '', endDate: '', untilDischarge: true, newDiet: undefined, note: '' };
   serverErrors: any[] = [];
   fieldErrors: any = {};
-  dietOptions: any[] = [];
+  // Active diets for selection in change-diet and assignments
+  dietOptionsActive: any[] = [];
+  // Diet options for the patient diet select: active diets + current patient's diet if inactive
+  dietOptionsPatient: any[] = [];
   role: string | null = null;
   // loading flags
   isSaving: boolean = false;
@@ -41,7 +44,7 @@ export class PatientDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     this.role = this.api.getUserRole();
     if (!id) return;
-    this.api.get('/patients/' + id).subscribe((res: any) => { this.patient = this.normalizeDates(res); this.prefillTimes(); }, (err) => {
+    this.api.get('/patients/' + id).subscribe((res: any) => { this.patient = this.normalizeDates(res); this.prefillTimes(); this.buildPatientDietOptions(); }, (err) => {
       console.error(err);
       this.serverErrors = [{ message: err?.error?.message || 'Failed to load patient' }];
     });
@@ -126,7 +129,27 @@ export class PatientDetailComponent implements OnInit {
     });
   }
 
-  loadDiets() { this.api.get('/diets').subscribe((res:any) => this.dietOptions = res || [], err => console.error('failed to load diets', err)); }
+  loadDiets() {
+    this.api.get('/diets').subscribe((res:any) => {
+      const list = Array.isArray(res) ? res : [];
+      // Only active diets for selection lists
+      this.dietOptionsActive = list.filter((d: any) => d && d.active === true);
+      this.buildPatientDietOptions();
+    }, err => { console.error('failed to load diets', err); });
+  }
+
+  private buildPatientDietOptions() {
+    // Build patient diet dropdown options: active diets plus the patient's current diet if it's inactive
+    const active = Array.isArray(this.dietOptionsActive) ? this.dietOptionsActive : [];
+    const current = this.patient?.diet ? String(this.patient.diet) : '';
+    const hasCurrentInActive = current ? active.some((d: any) => d?.name === current) : false;
+    if (current && !hasCurrentInActive) {
+      // Append the current diet so it's visible in the select, without making all inactive diets selectable elsewhere
+      this.dietOptionsPatient = [...active, { name: current, active: false }];
+    } else {
+      this.dietOptionsPatient = [...active];
+    }
+  }
 
   back() { this.router.navigate(['/patients']); }
 
@@ -148,7 +171,7 @@ export class PatientDetailComponent implements OnInit {
       });
       return;
     }
-    if (!this.clientValidate()) return;
+  if (!this.clientValidate()) { this.toast.error('Please correct the highlighted fields'); return; }
     // Additional discharge validation
     const status = String(this.patient?.status || '').trim();
     const hasDischargeDate = !!this.patient?.dischargeDate;
@@ -197,7 +220,7 @@ export class PatientDetailComponent implements OnInit {
     this.patient.dischargeDate = fixDate(this.patient.dischargeDate) || undefined;
     this.api.put('/patients/' + id, this.patient).subscribe((res:any) => {
       const wasDischarged = status === 'discharged';
-      this.toast.success(wasDischarged ? 'Patient discharged and saved' : 'Patient details saved');
+      this.toast.success(wasDischarged ? 'Patient discharged successfully' : 'Patient updated successfully');
       this.patient = res; this.isSaving = false; 
       // refresh assignments so UI shows updated latest diet
       this.loadAssignments();
@@ -207,7 +230,7 @@ export class PatientDetailComponent implements OnInit {
         this.mapStructuredErrors(this.serverErrors);
         this.toast.error('Please correct the highlighted fields');
       } else {
-        this.toast.error(err?.error?.message || 'Save failed');
+        this.toast.error(err?.error?.message || 'Failed to update patient');
         console.error(err);
       }
       this.isSaving = false;

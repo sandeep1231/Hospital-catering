@@ -49,7 +49,7 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="text-center py-3">Loading...</div>
+  <!-- Removed dedicated skeleton block; use in-place skeleton rows/cards for near-zero shift -->
 
   <div *ngIf="!loading && patients.length === 0" class="alert alert-light">No patients found</div>
 
@@ -70,7 +70,25 @@
               <th class="text-end">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody [class.placeholder-glow]="loading">
+            <!-- Skeleton rows while loading -->
+            <ng-container *ngIf="loading; else patientRows">
+              <tr *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]">
+                <td><span class="placeholder col-6"></span></td>
+                <td>
+                  <div class="placeholder col-8 mb-1"></div>
+                  <div class="placeholder col-4"></div>
+                </td>
+                <td><span class="placeholder col-7"></span></td>
+                <td><span class="placeholder col-8"></span></td>
+                <td><span class="placeholder col-4"></span></td>
+                <td><span class="placeholder col-6"></span></td>
+                <td><div class="placeholder col-10"></div></td>
+                <td class="text-end"><span class="placeholder col-5"></span></td>
+              </tr>
+            </ng-container>
+            <!-- Real rows -->
+            <ng-template #patientRows>
             <tr *ngFor="let p of patients">
               <td>
                 {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy':'Asia/Kolkata' }}
@@ -110,11 +128,12 @@
                 </button>
               </td>
             </tr>
+            </ng-template>
           </tbody>
         </table>
       </div>
     </div>
-    <div class="card-footer d-flex justify-content-between align-items-center">
+    <div class="card-footer d-flex justify-content-between align-items-center" *ngIf="!loading">
       <div class="small text-muted">
         Showing {{ (patients.length ? ((page-1)*pageSize + 1) : 0) }}
         to {{ ((page-1)*pageSize + patients.length) }} of {{ total }}
@@ -138,6 +157,31 @@
   <!-- Mobile/Tablet: card view with icons -->
   <div class="d-lg-none">
     <div class="row g-2">
+      <!-- Skeleton cards while loading -->
+      <ng-container *ngIf="loading; else patientCards">
+        <div class="col-12" *ngFor="let i of [1,2,3,4,5]">
+          <div class="card">
+            <div class="card-body placeholder-glow">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="w-75">
+                  <div class="placeholder col-5 mb-2"></div>
+                  <div class="placeholder col-7"></div>
+                </div>
+                <div class="w-25 text-end">
+                  <div class="placeholder col-6 mb-2"></div>
+                  <div class="placeholder col-6"></div>
+                </div>
+              </div>
+              <div class="placeholder col-8 mt-2"></div>
+              <div class="placeholder col-6 mt-2"></div>
+              <div class="placeholder col-5 mt-2"></div>
+              <div class="placeholder col-7 mt-2"></div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+      <!-- Real cards -->
+      <ng-template #patientCards>
       <div class="col-12" *ngFor="let p of patients">
         <div class="card">
           <div class="card-body">
@@ -185,6 +229,7 @@
           </div>
         </div>
       </div>
+      </ng-template>
       <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mt-2">
           <div class="small text-muted">

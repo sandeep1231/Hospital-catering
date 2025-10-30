@@ -21,8 +21,9 @@
         </div>
       </div>
 
-      <div class="mt-3" *ngIf="businessRows.length">
-        <!-- Desktop (lg+): table in card with sticky header -->
+      <!-- Business range: near-zero shift with in-place skeletons -->
+      <!-- Desktop (lg+): table in card with sticky header; visible during loading to avoid layout jump -->
+      <div class="mt-3">
         <div class="card d-none d-lg-block d-print-none">
           <div class="card-body p-0">
             <div class="table-container table-responsive">
@@ -36,19 +37,35 @@
                     <th class="text-end">Bill Amount</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr *ngFor="let r of bPagedRows()">
-                    <td>{{ r.inDate }}</td>
-                    <td>{{ r.dischargeDate }}</td>
-                    <td>{{ r.name }}</td>
-                    <td>{{ r.phone }}</td>
-                    <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
-                  </tr>
+                <tbody [class.placeholder-glow]="businessLoading">
+                  <!-- Skeleton rows while loading -->
+                  <ng-container *ngIf="businessLoading; else businessRowsTbody">
+                    <tr *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]">
+                      <td><span class="placeholder col-6"></span></td>
+                      <td><span class="placeholder col-6"></span></td>
+                      <td><span class="placeholder col-8"></span></td>
+                      <td><span class="placeholder col-7"></span></td>
+                      <td class="text-end"><span class="placeholder col-4"></span></td>
+                    </tr>
+                  </ng-container>
+                  <!-- Real rows -->
+                  <ng-template #businessRowsTbody>
+                    <tr *ngFor="let r of bPagedRows()">
+                      <td>{{ r.inDate }}</td>
+                      <td>{{ r.dischargeDate }}</td>
+                      <td>{{ r.name }}</td>
+                      <td>{{ r.phone }}</td>
+                      <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr *ngIf="!bPagedRows().length">
+                      <td colspan="5" class="text-center text-muted">No data</td>
+                    </tr>
+                  </ng-template>
                 </tbody>
               </table>
             </div>
           </div>
-          <div class="card-footer d-flex justify-content-between align-items-center">
+          <div class="card-footer d-flex justify-content-between align-items-center" [class.d-none]="businessLoading || !businessRows.length">
             <div class="small text-muted">
               Showing {{ (bPagedRows().length ? ((bPage-1)*bPageSize + 1) : 0) }}
               to {{ ((bPage-1)*bPageSize + bPagedRows().length) }} of {{ bCount }}
@@ -69,48 +86,71 @@
           </div>
         </div>
 
-        <!-- Cards for mobile/tablet -->
+        <!-- Mobile/Tablet: cards; render skeletons in-place while loading -->
         <div class="row g-2 d-lg-none d-print-none">
-          <div class="col-12" *ngFor="let r of bPagedRows()">
-            <div class="card">
-              <div class="card-body d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="small text-muted">In: {{ r.inDate }} | Out: {{ r.dischargeDate }}</div>
-                  <div class="fw-semibold">{{ r.name }}</div>
-                  <div class="small text-muted">Phone: {{ r.phone }}</div>
-                </div>
-                <div class="text-end">
-                  <div class="fw-semibold">{{ r.billAmount | number:'1.2-2' }}</div>
+          <!-- Skeleton cards while loading -->
+          <ng-container *ngIf="businessLoading; else businessCards">
+            <div class="col-12" *ngFor="let i of [1,2,3,4,5]">
+              <div class="card">
+                <div class="card-body d-flex justify-content-between align-items-start placeholder-glow">
+                  <div class="w-75">
+                    <div class="placeholder col-7 mb-2"></div>
+                    <div class="placeholder col-8 mb-1"></div>
+                    <div class="placeholder col-6"></div>
+                  </div>
+                  <div class="w-25 text-end">
+                    <div class="placeholder col-5"></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mt-2">
-              <div class="small text-muted">
-                Showing {{ (bPagedRows().length ? ((bPage-1)*bPageSize + 1) : 0) }}
-                to {{ ((bPage-1)*bPageSize + bPagedRows().length) }} of {{ bCount }}
-              </div>
-              <div class="d-flex align-items-center gap-2">
-                <select class="form-select form-select-sm w-auto" [ngModel]="bPageSize" (ngModelChange)="bOnPageSizeChange($event)">
-                  <option [ngValue]="10">10</option>
-                  <option [ngValue]="20">20</option>
-                  <option [ngValue]="50">50</option>
-                  <option [ngValue]="100">100</option>
-                </select>
-                <div class="btn-group">
-                  <button class="btn btn-sm btn-outline-secondary" (click)="bPrev()" [disabled]="!bCanPrev()">Prev</button>
-                  <button class="btn btn-sm btn-outline-secondary" (click)="bNext()" [disabled]="!bCanNext()">Next</button>
+          </ng-container>
+          <!-- Real cards -->
+          <ng-template #businessCards>
+            <div class="col-12" *ngFor="let r of bPagedRows()">
+              <div class="card">
+                <div class="card-body d-flex justify-content-between align-items-start">
+                  <div>
+                    <div class="small text-muted">In: {{ r.inDate }} | Out: {{ r.dischargeDate }}</div>
+                    <div class="fw-semibold">{{ r.name }}</div>
+                    <div class="small text-muted">Phone: {{ r.phone }}</div>
+                  </div>
+                  <div class="text-end">
+                    <div class="fw-semibold">{{ r.billAmount | number:'1.2-2' }}</div>
+                  </div>
                 </div>
-                <div class="small text-muted">Page {{bPage}} / {{ bTotalPages() }}</div>
               </div>
             </div>
-            <div class="mt-2 text-end"><strong>Total:</strong> {{ businessTotal | number:'1.2-2' }}</div>
-          </div>
+            <div class="col-12" *ngIf="!bPagedRows().length">
+              <div class="text-center text-muted py-2">No data</div>
+            </div>
+            <div class="col-12" [class.d-none]="businessLoading || !businessRows.length">
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="small text-muted">
+                  Showing {{ (bPagedRows().length ? ((bPage-1)*bPageSize + 1) : 0) }}
+                  to {{ ((bPage-1)*bPageSize + bPagedRows().length) }} of {{ bCount }}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <select class="form-select form-select-sm w-auto" [ngModel]="bPageSize" (ngModelChange)="bOnPageSizeChange($event)">
+                    <option [ngValue]="10">10</option>
+                    <option [ngValue]="20">20</option>
+                    <option [ngValue]="50">50</option>
+                    <option [ngValue]="100">100</option>
+                  </select>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary" (click)="bPrev()" [disabled]="!bCanPrev()">Prev</button>
+                    <button class="btn btn-sm btn-outline-secondary" (click)="bNext()" [disabled]="!bCanNext()">Next</button>
+                  </div>
+                  <div class="small text-muted">Page {{bPage}} / {{ bTotalPages() }}</div>
+                </div>
+              </div>
+              <div class="mt-2 text-end"><strong>Total:</strong> {{ businessTotal | number:'1.2-2' }}</div>
+            </div>
+          </ng-template>
         </div>
 
         <!-- Keep table for printing only -->
-  <div class="table-responsive mt-3 d-none d-print-block">
+        <div class="table-responsive mt-3 d-none d-print-block">
           <table class="table table-sm table-bordered" id="businessRangeTable">
             <thead>
               <tr>
@@ -175,11 +215,18 @@
       </div>
 
       <div class="row mt-3 g-3">
-        <div class="col-12 d-flex flex-wrap gap-3">
+        <div class="col-12 d-flex flex-wrap gap-3" *ngIf="optsOverTime && optsRevenue && optsRoom && optsDietDist && optsPayer; else kpiSkeleton">
           <span class="badge text-bg-secondary">Deliveries: {{ totalDeliveries }}</span>
           <span class="badge text-bg-secondary">Unique Patients: {{ totalUniquePatients }}</span>
           <span class="badge text-bg-success">Revenue: {{ totalRevenue | number:'1.2-2' }}</span>
         </div>
+        <ng-template #kpiSkeleton>
+          <div class="col-12 placeholder-glow">
+            <span class="placeholder col-2 me-2"></span>
+            <span class="placeholder col-2 me-2"></span>
+            <span class="placeholder col-2"></span>
+          </div>
+        </ng-template>
       </div>
 
       <div class="row mt-2 g-3">
@@ -197,7 +244,14 @@
             <h6 class="card-title mb-0">Diets Over Time</h6>
           </div>
           <div class="small text-muted mb-2">X: Time bucket ({{ analyticsGran }}), Y: Deliveries (count)</div>
-          <div echarts [options]="optsOverTime" class="w-100" style="height: 340px;"></div>
+          <ng-container *ngIf="optsOverTime; else overTimeSkeleton">
+            <div echarts [options]="optsOverTime" class="w-100" style="height: 340px;"></div>
+          </ng-container>
+          <ng-template #overTimeSkeleton>
+            <div class="placeholder-glow">
+              <div class="placeholder col-12" style="height:340px;"></div>
+            </div>
+          </ng-template>
         </div>
       </div>
     </div>
@@ -212,7 +266,14 @@
             </div>
           </div>
           <div class="small text-muted mb-2">X: Time bucket ({{ analyticsGran }}), Y: Revenue (currency)</div>
-          <div echarts [options]="optsRevenue" class="w-100" style="height: 340px;"></div>
+          <ng-container *ngIf="optsRevenue; else revenueSkeleton">
+            <div echarts [options]="optsRevenue" class="w-100" style="height: 340px;"></div>
+          </ng-container>
+          <ng-template #revenueSkeleton>
+            <div class="placeholder-glow">
+              <div class="placeholder col-12" style="height:340px;"></div>
+            </div>
+          </ng-template>
         </div>
       </div>
     </div>
@@ -225,7 +286,14 @@
         <h6 class="card-title mb-0">Diet Sales by Room Type</h6>
       </div>
       <div class="small text-muted mb-2">X: Room Type, Y: Deliveries (count)</div>
-      <div echarts [options]="optsRoom" class="w-100" style="height: 340px;"></div>
+      <ng-container *ngIf="optsRoom; else roomSkeleton">
+        <div echarts [options]="optsRoom" class="w-100" style="height: 340px;"></div>
+      </ng-container>
+      <ng-template #roomSkeleton>
+        <div class="placeholder-glow">
+          <div class="placeholder col-12" style="height:340px;"></div>
+        </div>
+      </ng-template>
     </div>
   </div>
 
@@ -238,7 +306,14 @@
             <h6 class="card-title mb-0">Diet Distribution</h6>
           </div>
           <div class="small text-muted mb-2">Metric: Deliveries (count)</div>
-          <div echarts [options]="optsDietDist" class="w-100" style="height: 320px;"></div>
+          <ng-container *ngIf="optsDietDist; else distSkeleton">
+            <div echarts [options]="optsDietDist" class="w-100" style="height: 320px;"></div>
+          </ng-container>
+          <ng-template #distSkeleton>
+            <div class="placeholder-glow">
+              <div class="placeholder col-12" style="height:320px;"></div>
+            </div>
+          </ng-template>
         </div>
       </div>
     </div>
@@ -249,7 +324,14 @@
             <h6 class="card-title mb-0">Payer Mix</h6>
           </div>
           <div class="small text-muted mb-2">Metric: Deliveries (count) by payer</div>
-          <div echarts [options]="optsPayer" class="w-100" style="height: 320px;"></div>
+          <ng-container *ngIf="optsPayer; else payerSkeleton">
+            <div echarts [options]="optsPayer" class="w-100" style="height: 320px;"></div>
+          </ng-container>
+          <ng-template #payerSkeleton>
+            <div class="placeholder-glow">
+              <div class="placeholder col-12" style="height:320px;"></div>
+            </div>
+          </ng-template>
         </div>
       </div>
     </div>

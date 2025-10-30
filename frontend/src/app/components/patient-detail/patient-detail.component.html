@@ -126,7 +126,7 @@
               <label class="form-label">Diet Type</label>
               <select class="form-select" [(ngModel)]="patient.diet" name="diet" [disabled]="isDisabled('diet')">
                 <option [ngValue]="undefined">-- select --</option>
-                <option *ngFor="let d of dietOptions" [value]="d.name">{{d.name}}</option>
+                <option *ngFor="let d of dietOptionsPatient" [value]="d.name">{{d.name}}</option>
               </select>
             </div>
             <div class="col-12 col-sm-7 col-md-8 col-lg-9">
@@ -246,7 +246,7 @@
             <label class="form-label">New diet</label>
             <select class="form-select" [(ngModel)]="changeDiet.newDiet" name="chgDiet">
               <option [ngValue]="undefined">-- select --</option>
-              <option *ngFor="let d of dietOptions" [value]="d.name">{{d.name}}</option>
+              <option *ngFor="let d of dietOptionsActive" [value]="d.name">{{d.name}}</option>
             </select>
           </div>
           <div class="col-12">
@@ -264,4 +264,13 @@
   </div>
 
   <div *ngIf="!patient" class="text-center text-muted mt-4">Loading...</div>
+</div>
+
+<!-- Page-level loader overlay during save/update -->
+<div *ngIf="isSaving" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background: rgba(255,255,255,0.6); z-index: 1100;">
+  <div class="text-center">
+    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+    <div class="mt-2 fw-semibold">Saving...</div>
+  </div>
+  <span class="visually-hidden">Saving...</span>
 </div>

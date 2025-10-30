@@ -122,12 +122,12 @@ export class PatientsListComponent implements OnInit {
   delete(p: any) {
     if (!confirm(`Delete patient "${p.name}"? This will also remove their diet assignments.`)) return;
     this.api.delete('/patients/' + p._id).subscribe(() => {
-      this.toast.success('Patient deleted');
+      this.toast.success('Patient deleted successfully');
       // If current page becomes empty, step back a page when possible
       const wasOnlyItem = this.patients.length === 1 && this.page > 1;
       if (wasOnlyItem) this.page--;
       this.load();
-    }, err => { console.error('Delete failed', err); this.toast.error('Delete failed'); });
+    }, err => { console.error('Delete failed', err); this.toast.error(err?.error?.message || 'Failed to delete patient'); });
   }
 
   // Helpers for mobile card to avoid showing today's entry inside "Diet (history)"

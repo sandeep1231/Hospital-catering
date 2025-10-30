@@ -38,6 +38,9 @@ import { Router } from '@angular/router';
     </div>
   </main>
 
+  <!-- Global toast notifications -->
+  <app-toast-container></app-toast-container>
+
   <footer class="bg-dark text-white py-4 mt-5">
     <div class="container d-flex justify-content-between align-items-center">
       <div>
