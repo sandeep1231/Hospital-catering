@@ -130,7 +130,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
                       }
                     }
                   },
-                  { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+                  { $project: { _id: 0, name: '$name', defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
                 ],
                 as: 'dtHosp'
               }
@@ -147,7 +147,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
                       }
                     }
                   },
-                  { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+                  { $project: { _id: 0, name: '$name', defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
                 ],
                 as: 'dtAny'
               }
@@ -168,7 +168,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
                       }
                     }
                   },
-                  { $project: { _id: 0, defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
+                  { $project: { _id: 0, name: '$name', defaultPrice: { $ifNull: ['$defaultPrice', 0] } } }
                 ],
                 as: 'dtFuzzy'
               }
@@ -178,14 +178,27 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
             { $addFields: { defaultPrice: { $cond: [ { $lte: ['$defaultPrice', 0] }, 0, '$defaultPrice' ] } } },
             // Always use DietType.defaultPrice for totals
             { $addFields: { priceUsed: '$defaultPrice' } },
-            { $group: { _id: null, total: { $sum: '$priceUsed' }, count: { $sum: 1 } } }
+            // Resolve a canonical diet display name from diettypes when available
+            { $addFields: {
+              nameHosp: { $arrayElemAt: ['$dtHosp.name', 0] },
+              nameAny: { $arrayElemAt: ['$dtAny.name', 0] },
+              nameFuzzy: { $arrayElemAt: ['$dtFuzzy.name', 0] }
+            } },
+            { $addFields: {
+              dietNameUsed: { $ifNull: ['$nameHosp', { $ifNull: ['$nameAny', { $ifNull: ['$nameFuzzy', { $trim: { input: '$diet' } } ] } ] } ] },
+              dietKey: { $toLower: { $trim: { input: { $ifNull: ['$nameHosp', { $ifNull: ['$nameAny', { $ifNull: ['$nameFuzzy', { $trim: { input: '$diet' } } ] } ] } ] } } } }
+            } },
+            // First group by diet to get per-diet counts and subtotals
+            { $group: { _id: '$dietKey', name: { $first: '$dietNameUsed' }, priceSubtotal: { $sum: '$priceUsed' }, count: { $sum: 1 } } },
+            // Then roll up totals and capture the per-diet counts in an array
+            { $group: { _id: null, total: { $sum: '$priceSubtotal' }, count: { $sum: '$count' }, diets: { $push: { name: '$name', count: '$count' } } } }
           ],
           as: 'bill'
         }
       },
       { $unwind: { path: '$bill', preserveNullAndEmptyArrays: true } },
-      { $addFields: { billAmount: { $ifNull: ['$bill.total', 0] }, deliveredCount: { $ifNull: ['$bill.count', 0] } } },
-      { $project: { _id: 0, name: 1, phone: 1, inDate: 1, dischargeDate: 1, billAmount: 1, deliveredCount: 1 } },
+      { $addFields: { billAmount: { $ifNull: ['$bill.total', 0] }, deliveredCount: { $ifNull: ['$bill.count', 0] }, dietCounts: { $ifNull: ['$bill.diets', []] } } },
+      { $project: { _id: 0, name: 1, phone: 1, inDate: 1, dischargeDate: 1, billAmount: 1, deliveredCount: 1, dietCounts: 1 } },
       { $sort: { inDate: 1, name: 1 } }
     ]);
 

@@ -14,7 +14,7 @@ export class ReportsDashboardComponent implements OnInit {
   // custom range vendor business summary
   rangeFrom: string = '';
   rangeTo: string = '';
-  businessRows: Array<{ inDate: string; dischargeDate: string; name: string; phone: string; billAmount: number }>= [];
+  businessRows: Array<{ inDate: string; dischargeDate: string; name: string; phone?: string; billAmount: number; dietCounts?: Array<{ name: string; count: number }> }>= [];
   businessLoading = false;
   businessTotal = 0;
   // pagination for business range
@@ -163,7 +163,8 @@ export class ReportsDashboardComponent implements OnInit {
           dischargeDate: (r.dischargeDate ? new Date(r.dischargeDate).toISOString().substring(0,10) : ''),
           name: r.name || '',
           phone: r.phone || '',
-          billAmount: Number(r.billAmount || 0)
+          billAmount: Number(r.billAmount || 0),
+          dietCounts: Array.isArray(r.dietCounts) ? r.dietCounts : []
         }));
         this.businessTotal = this.businessRows.reduce((sum, r) => sum + (Number(r.billAmount) || 0), 0);
         this.bPage = 1;
@@ -171,6 +172,11 @@ export class ReportsDashboardComponent implements OnInit {
       },
       error: (e) => { console.error(e); this.toast.error('Failed to load business range'); this.businessLoading = false; }
     });
+  }
+
+  formatDietCounts(list?: Array<{ name: string; count: number }>): string {
+    if (!list || !list.length) return '—';
+    return list.map(d => `${d.name}: ${d.count}`).join(', ');
   }
 
   printBusinessRange() {
