@@ -17,7 +17,7 @@ import { Router } from '@angular/router';
           <li class="nav-item" *ngIf="isDietSupervisorOrAdmin"><a class="nav-link" routerLink="/diet-supervisor" routerLinkActive="active" (click)="closeNav()">Diet Supervisor</a></li>
           <li class="nav-item" *ngIf="isAdmin"><a class="nav-link" routerLink="/admin/diets" routerLinkActive="active" (click)="closeNav()">Diets</a></li>
           <li class="nav-item" *ngIf="isAdmin"><a class="nav-link" routerLink="/admin/users" routerLinkActive="active" (click)="closeNav()">Users</a></li>
-          <!--<li class="nav-item" *ngIf="isReports"><a class="nav-link" routerLink="/reports" routerLinkActive="active" (click)="closeNav()">Reports</a></li>-->
+          <li class="nav-item" *ngIf="isReports"><a class="nav-link" routerLink="/reports" routerLinkActive="active" (click)="closeNav()">Reports</a></li>
         </ul>
         <div class="d-flex align-items-center gap-2 ms-auto">
           <ng-container *ngIf="api.isLoggedIn(); else loggedOut">
