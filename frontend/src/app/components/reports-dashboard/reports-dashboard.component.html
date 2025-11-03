@@ -34,6 +34,7 @@
                     <th>Discharge Date</th>
                     <th>Patient Name</th>
                     <th>Diet Count</th>
+                    <th class="text-end">Total Diets</th>
                     <th class="text-end">Bill Amount</th>
                   </tr>
                 </thead>
@@ -45,6 +46,7 @@
                       <td><span class="placeholder col-6"></span></td>
                       <td><span class="placeholder col-8"></span></td>
                       <td><span class="placeholder col-7"></span></td>
+                      <td class="text-end"><span class="placeholder col-3"></span></td>
                       <td class="text-end"><span class="placeholder col-4"></span></td>
                     </tr>
                   </ng-container>
@@ -55,10 +57,11 @@
                       <td>{{ r.dischargeDate }}</td>
                       <td>{{ r.name }}</td>
                       <td class="text-nowrap">{{ formatDietCounts(r.dietCounts) }}</td>
+                      <td class="text-end">{{ r.deliveredCount || 0 }}</td>
                       <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
                     </tr>
                     <tr *ngIf="!bPagedRows().length">
-                      <td colspan="5" class="text-center text-muted">No data</td>
+                      <td colspan="6" class="text-center text-muted">No data</td>
                     </tr>
                   </ng-template>
                 </tbody>
@@ -115,6 +118,7 @@
                     <div class="small text-muted">In: {{ r.inDate }} | Out: {{ r.dischargeDate }}</div>
                     <div class="fw-semibold">{{ r.name }}</div>
                     <div class="small text-muted">Diets: {{ formatDietCounts(r.dietCounts) }}</div>
+                    <div class="small text-muted">Total diets: {{ r.deliveredCount || 0 }}</div>
                   </div>
                   <div class="text-end">
                     <div class="fw-semibold">{{ r.billAmount | number:'1.2-2' }}</div>
@@ -150,7 +154,10 @@
           </ng-template>
         </div>
 
-        <!-- Keep table for printing only -->
+        <!-- Print header and table (print-only) -->
+        <div id="businessRangeHeader" class="d-none d-print-block text-center fw-semibold">
+          Report ({{ rangeFrom }} to {{ rangeTo }})
+        </div>
         <div class="table-responsive mt-3 d-none d-print-block">
           <table class="table table-sm table-bordered" id="businessRangeTable">
             <thead>
@@ -159,6 +166,7 @@
                 <th>Discharge Date</th>
                 <th>Patient Name</th>
                 <th>Diet Count</th>
+                <th class="text-end">Total Diets</th>
                 <th class="text-end">Bill Amount</th>
               </tr>
             </thead>
@@ -168,12 +176,13 @@
                 <td>{{ r.dischargeDate }}</td>
                 <td>{{ r.name }}</td>
                 <td>{{ formatDietCounts(r.dietCounts) }}</td>
+                <td class="text-end">{{ r.deliveredCount || 0 }}</td>
                 <td class="text-end">{{ r.billAmount | number:'1.2-2' }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
-                <th colspan="4" class="text-end">Total</th>
+                <th colspan="5" class="text-end">Total</th>
                 <th class="text-end">{{ businessTotal | number:'1.2-2' }}</th>
               </tr>
             </tfoot>

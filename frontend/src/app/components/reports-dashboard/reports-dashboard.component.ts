@@ -14,7 +14,7 @@ export class ReportsDashboardComponent implements OnInit {
   // custom range vendor business summary
   rangeFrom: string = '';
   rangeTo: string = '';
-  businessRows: Array<{ inDate: string; dischargeDate: string; name: string; phone?: string; billAmount: number; dietCounts?: Array<{ name: string; count: number }> }>= [];
+  businessRows: Array<{ inDate: string; dischargeDate: string; name: string; phone?: string; billAmount: number; deliveredCount?: number; dietCounts?: Array<{ name: string; count: number }> }>= [];
   businessLoading = false;
   businessTotal = 0;
   // pagination for business range
@@ -164,6 +164,7 @@ export class ReportsDashboardComponent implements OnInit {
           name: r.name || '',
           phone: r.phone || '',
           billAmount: Number(r.billAmount || 0),
+          deliveredCount: Number(r.deliveredCount || 0),
           dietCounts: Array.isArray(r.dietCounts) ? r.dietCounts : []
         }));
         this.businessTotal = this.businessRows.reduce((sum, r) => sum + (Number(r.billAmount) || 0), 0);
@@ -176,14 +177,12 @@ export class ReportsDashboardComponent implements OnInit {
 
   formatDietCounts(list?: Array<{ name: string; count: number }>): string {
     if (!list || !list.length) return '—';
-    return list.map(d => `${d.name}: ${d.count}`).join(', ');
+    return list.map(d => `${d.name}: ${d.count}`).join(' | ');
   }
 
   printBusinessRange() {
-    // Use default window.print() so it respects browser settings and avoids pop-up blockers.
-    // Global @media print CSS ensures only #businessRangeTable is visible when printing.
-    const tableEl = document.getElementById('businessRangeTable');
-    if (!tableEl) return;
+    // Rely on custom print header element so users can disable browser headers/footers.
+    // Do not override document.title to avoid duplicated headers when headers are enabled.
     window.print();
   }
 
@@ -266,8 +265,20 @@ export class ReportsDashboardComponent implements OnInit {
   this.updateRevenueOptions();
 
         // By room type (stacked bar)
-        const roomLabels: string[] = res.byRoomType?.labels || [];
-        const roomDatasets: any[] = res.byRoomType?.datasets || [];
+        let roomLabels: string[] = res.byRoomType?.labels || [];
+        let roomDatasets: any[] = res.byRoomType?.datasets || [];
+        // Filter out room types (categories) whose total across all diets is zero
+        if (roomLabels.length && roomDatasets.length) {
+          const idxs = roomLabels.map((_, i) => i);
+          const keepIdx = idxs.filter(i => roomDatasets.reduce((sum: number, ds: any) => sum + Number((ds?.data?.[i]) || 0), 0) > 0);
+          if (keepIdx.length !== roomLabels.length) {
+            roomLabels = keepIdx.map(i => roomLabels[i]);
+            roomDatasets = roomDatasets.map((ds: any) => ({
+              ...ds,
+              data: keepIdx.map(i => Number((ds?.data?.[i]) || 0))
+            }));
+          }
+        }
         const roomColors = roomDatasets.map((_: any, i: number) => this.pick(i));
         this.optsRoom = {
           color: roomColors,
