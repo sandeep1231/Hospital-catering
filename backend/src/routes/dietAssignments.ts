@@ -5,6 +5,8 @@ import DietAssignment from '../models/dietAssignment';
 import Patient from '../models/patient';
 import dayjs from 'dayjs';
 import { istStartOfDayUTCForDate, addIstDaysUTC, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD } from '../utils/time';
+import mongoose from 'mongoose';
+import PatientMovement from '../models/patientMovement';
 
 const router = Router();
 
@@ -48,10 +50,82 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
 
 // List patient diet assignments (auth)
 router.get('/patient/:patientId', auth, async (req: Request, res: Response) => {
-  const hid = (req as any).user?.hospitalId;
-  const patientId = req.params.patientId;
-  const list = await DietAssignment.find({ patientId, ...(hid ? { hospitalId: hid } : {}) }).sort({ date: 1, createdAt: 1 });
-  res.json(list);
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const pid = req.params.patientId;
+    const pidObj = (pid && mongoose.Types.ObjectId.isValid(pid)) ? new mongoose.Types.ObjectId(pid) : null;
+    if (!pidObj) return res.status(400).json({ message: 'invalid patientId' });
+
+    const pipeline: any[] = [
+      { $match: { patientId: pidObj, ...(hid ? { hospitalId: new mongoose.Types.ObjectId(hid) } : {}) } },
+      { $sort: { date: 1, createdAt: 1 } },
+      // Build YYYY-MM-DD string and assignment timestamp using fromTime (fallback noon IST)
+      { $addFields: { dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: '+05:30' } } } },
+      {
+        $addFields: {
+          fromTimeSafe: {
+            $cond: [
+              { $regexMatch: { input: { $ifNull: ['$fromTime', ''] }, regex: /^(?:[01]\d|2[0-3]):[0-5]\d$/ } },
+              '$fromTime',
+              '12:00'
+            ]
+          },
+          assignTs: {
+            $dateFromString: { dateString: { $concat: ['$dateStr', 'T', { $ifNull: ['$fromTimeSafe', '12:00'] }, ':00+05:30'] } }
+          },
+          // Movement timestamp: delivered -> deliveredAt; else -> now
+          mvTs: {
+            $cond: [
+              { $and: [ { $eq: ['$status','delivered'] }, { $ne: ['$deliveredAt', null] } ] },
+              '$deliveredAt',
+              new Date()
+            ]
+          }
+        }
+      },
+      // resolve movement for the effective assignment timestamp
+      {
+        $lookup: {
+          from: 'patientmovements',
+          let: { pid: '$patientId', d: '$mvTs' },
+          pipeline: [
+            { $match: { $expr: { $and: [ { $eq: ['$patientId', '$$pid'] }, ...(hid ? [{ $eq: ['$hospitalId', new mongoose.Types.ObjectId(hid) ] }] : []), { $lte: ['$start', '$$d'] }, { $or: [ { $eq: ['$end', null] }, { $gt: ['$end', '$$d'] } ] } ] } } },
+            { $sort: { start: -1 } },
+            { $limit: 1 }
+          ],
+          as: 'mv'
+        }
+      },
+      { $addFields: { mv: { $arrayElemAt: ['$mv', 0] } } },
+      // fallback to patient-level fields if needed
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      {
+        $project: {
+          _id: 1,
+          patientId: 1,
+          hospitalId: 1,
+          date: 1,
+          fromTime: 1,
+          toTime: 1,
+          diet: 1,
+          note: 1,
+          status: 1,
+          price: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          roomType: { $ifNull: ['$mv.roomType', '$p.roomType'] },
+          roomNo: { $ifNull: ['$mv.roomNo', '$p.roomNo'] },
+          bed: { $ifNull: ['$mv.bed', '$p.bed'] }
+        }
+      }
+    ];
+    const list = await DietAssignment.aggregate(pipeline);
+    res.json(list);
+  } catch (e) {
+    console.error('assignments with movement failed', e);
+    res.status(500).json({ message: 'failed to load assignments' });
+  }
 });
 
 // Mark delivered (dietician, diet-supervisor, or admin)

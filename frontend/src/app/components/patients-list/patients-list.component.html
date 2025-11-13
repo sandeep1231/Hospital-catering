@@ -9,42 +9,43 @@
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-2 align-items-center">
-      <div class="col-12 col-lg-4">
-        <div class="input-group">
-          <input class="form-control" placeholder="Search by name or phone" [(ngModel)]="q" (keyup.enter)="page=1; load()" />
-          <button class="btn btn-outline-secondary" (click)="page=1; load()" title="Search" aria-label="Search">🔍</button>
+        <div class="col-12 col-lg-4">
+          <div class="input-group">
+            <input class="form-control" placeholder="Search by name or phone" [(ngModel)]="q" (keyup.enter)="page=1; load()" />
+            <button class="btn btn-outline-secondary" (click)="page=1; load()" title="Search" aria-label="Search">🔍</button>
+          </div>
         </div>
-      </div>
-      <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="status" (change)="page=1; load()">
-          <option value="">All patients</option>
-          <option value="in_patient">In-patient</option>
-          <option value="discharged">Discharged</option>
-          <option value="outpatient">Outpatient</option>
-        </select>
-      </div>
-      <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="dietStatus" (change)="page=1; load()">
-          <option value="">All diet</option>
-          <option value="pending">Diet: Pending</option>
-          <option value="delivered">Diet: Delivered</option>
-          <option value="cancelled">Diet: Cancelled</option>
-        </select>
-      </div>
-      <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="roomTypeFilter" (change)="onRoomTypeChange()">
-          <option value="">Room type</option>
-          <option *ngFor="let rt of roomTypes" [value]="rt">{{rt}}</option>
-        </select>
-      </div>
-      <div class="col-6 col-lg-2">
-        <select class="form-select" [(ngModel)]="roomNoFilter" (change)="page=1; load()">
-          <option value="">Room no</option>
-          <option *ngFor="let rn of roomNos" [value]="rn">{{rn}}</option>
-        </select>
-      </div>
-      <div class="col-12 col-lg-2 d-grid d-lg-block text-end">
-        <button class="btn btn-outline-secondary w-100 w-lg-auto" (click)="q=''; status=''; dietStatus=''; roomTypeFilter=''; roomNoFilter=''; page=1; load()">Reset</button>
+        <div class="col-6 col-lg-2">
+          <select class="form-select" [(ngModel)]="status" (change)="page=1; load()">
+            <option value="">All patients</option>
+            <option value="in_patient">In-patient</option>
+            <option value="discharged">Discharged</option>
+            <option value="outpatient">Outpatient</option>
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <select class="form-select" [(ngModel)]="dietStatus" (change)="page=1; load()">
+            <option value="">All diet</option>
+            <option value="pending">Diet: Pending</option>
+            <option value="delivered">Diet: Delivered</option>
+            <option value="cancelled">Diet: Cancelled</option>
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <select class="form-select" [(ngModel)]="roomTypeFilter" (change)="onRoomTypeChange()">
+            <option value="">Room type</option>
+            <option *ngFor="let rt of roomTypes" [value]="rt">{{rt}}</option>
+          </select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <select class="form-select" [(ngModel)]="roomNoFilter" (change)="page=1; load()">
+            <option value="">Room no</option>
+            <option *ngFor="let rn of roomNos" [value]="rn">{{rn}}</option>
+          </select>
+        </div>
+        <div class="col-12 col-lg-2 d-grid d-lg-block text-end">
+          <button class="btn btn-outline-secondary w-100 w-lg-auto" (click)="q=''; status=''; dietStatus=''; roomTypeFilter=''; roomNoFilter=''; page=1; load()">Reset</button>
+        </div>
       </div>
     </div>
   </div>
@@ -89,45 +90,46 @@
             </ng-container>
             <!-- Real rows -->
             <ng-template #patientRows>
-            <tr *ngFor="let p of patients">
-              <td>
-                {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy':'Asia/Kolkata' }}
-              </td>
-              <td>
-                <div class="fw-medium">{{p.name}}</div>
-                <div class="small text-muted">Age: {{p.age || '—'}}</div>
-              </td>
-              <td>{{p.phone || '—'}}</td>
-              <td>{{p.roomType || '—'}} / {{p.roomNo || '—'}}</td>
-              <td>{{p.bed || '—'}}</td>
-              <td>
-                <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
-                <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
-                <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
-              </td>
-              <td>
-                <!-- Compact history list -->
-                <div class="small text-muted" *ngIf="sortedHistory(p)?.length">
-                  <div *ngFor="let h of sortedHistory(p)">
-                    <span>{{ h.date | date:'dd-MM-yyyy':'Asia/Kolkata' }}:</span>
-                    <span class="ms-1">{{ h.diet }}</span>
-                    <span class="badge ms-1" [ngClass]="{
-                      'bg-success': h.status==='delivered',
-                      'bg-warning text-dark': h.status==='pending',
-                      'bg-secondary': h.status==='cancelled'
-                    }">{{ h.status }}</span>
+              <tr *ngFor="let p of patients">
+                <td>
+                  {{ (p.inDate || p.createdAt) | date:'dd-MM-yyyy':'Asia/Kolkata' }}
+                </td>
+                <td>
+                  <div class="fw-medium">{{p.name}}</div>
+                  <div class="small text-muted">Age: {{p.age || '—'}}
                   </div>
-                </div>
-              </td>
-              <td class="text-end">
-                <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
-                  View
-                </button>
-                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
-                  Delete
-                </button>
-              </td>
-            </tr>
+                </td>
+                <td>{{p.phone || '—'}}</td>
+                <td>{{p.roomType || '—'}} / {{p.roomNo || '—'}}</td>
+                <td>{{p.bed || '—'}}</td>
+                <td>
+                  <span class="badge bg-secondary" *ngIf="p.status==='in_patient'">In-patient</span>
+                  <span class="badge bg-success" *ngIf="p.status==='discharged'">Discharged</span>
+                  <span class="badge bg-info text-dark" *ngIf="p.status==='outpatient'">Outpatient</span>
+                </td>
+                <td>
+                  <!-- Compact diet history list -->
+                  <div class="small text-muted" *ngIf="sortedHistory(p)?.length">
+                    <div *ngFor="let h of sortedHistory(p)">
+                      <span>{{ h.date | date:'dd-MM-yyyy':'Asia/Kolkata' }}:</span>
+                      <span class="ms-1">{{ h.diet }}</span>
+                      <span class="badge ms-1" [ngClass]="{
+                        'bg-success': h.status==='delivered',
+                        'bg-warning text-dark': h.status==='pending',
+                        'bg-secondary': h.status==='cancelled'
+                      }">{{ h.status }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
+                    View
+                  </button>
+                  <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
+                    Delete
+                  </button>
+                </td>
+              </tr>
             </ng-template>
           </tbody>
         </table>
@@ -204,6 +206,7 @@
               <span class="badge bg-success ms-1" *ngIf="p.status==='discharged'">Discharged</span>
               <span class="badge bg-info text-dark ms-1" *ngIf="p.status==='outpatient'">Outpatient</span>
             </div>
+            <!-- Diet (history) for mobile -->
             <div class="small mt-2">
               <div class="fw-semibold">Diet (history)</div>
               <ng-container *ngIf="sortedHistory(p)?.length as histLen">

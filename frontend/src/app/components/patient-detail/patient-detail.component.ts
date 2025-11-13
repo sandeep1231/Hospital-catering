@@ -12,6 +12,7 @@ export class PatientDetailComponent implements OnInit {
   patient: any = null;
   assignments: any[] = [];
   filtered: any[] = [];
+  movements: any[] = [];
   filterDays: number | 'all' = 'all';
   newAssign: any = { date: '', fromTime: '', toTime: '', diet: undefined, note: '', price: 0 };
   bulk: any = { startDate: '', days: 0, untilDischarge: false, diet: undefined, note: '', overwriteExisting: false };
@@ -50,6 +51,7 @@ export class PatientDetailComponent implements OnInit {
     });
     this.loadAssignments();
     this.loadDiets();
+    this.loadMovements();
   }
 
   private normalizeDates(p: any) {
@@ -116,6 +118,16 @@ export class PatientDetailComponent implements OnInit {
   }, (err) => { console.error(err); this.toast.error('Failed to load diet assignments'); });
   }
 
+  loadMovements() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) return;
+    this.api.get(`/patients/${id}/movements`).subscribe((res: any) => {
+      const arr = Array.isArray(res) ? res : [];
+      // sort by start desc
+      this.movements = arr.sort((a,b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+    }, (err) => { console.error('Failed to load movements', err); });
+  }
+
   setFilter(days: number | 'all') { this.filterDays = days; this.applyFilter(); }
 
   private applyFilter() {
@@ -161,10 +173,15 @@ export class PatientDetailComponent implements OnInit {
     this.fieldErrors = {};
     // Dietician: only feedback is editable, short-circuit to feedback-only endpoint
     if (this.role === 'dietician') {
-      const body = { feedback: this.patient?.feedback || '' };
+      const body = { feedback: this.patient?.feedback || '', dietNote: this.patient?.dietNote || '' };
       this.isSaving = true;
       this.api.put('/patients/' + id + '/feedback', body).subscribe((res:any) => {
-        this.toast.success('Feedback updated');
+        // Update local fields from response if provided
+        if (res && typeof res.feedback === 'string') this.patient.feedback = res.feedback;
+        if (res && typeof res.dietNote === 'string') this.patient.dietNote = res.dietNote;
+        this.toast.success('Notes updated');
+        // Reload assignments to reflect any pending note sync
+        this.loadAssignments();
         this.isSaving = false;
       }, err => {
         this.toast.error('Save failed'); console.error(err); this.isSaving = false;
@@ -224,6 +241,8 @@ export class PatientDetailComponent implements OnInit {
       this.patient = res; this.isSaving = false; 
       // refresh assignments so UI shows updated latest diet
       this.loadAssignments();
+      // refresh movements to reflect any room changes
+      this.loadMovements();
     }, err => {
       if (err?.status === 400 && err.error?.errors) {
         this.serverErrors = Array.isArray(err.error.errors) ? err.error.errors : [{ message: String(err.error.errors) }];
@@ -370,6 +389,7 @@ export class PatientDetailComponent implements OnInit {
     // Dietician: only feedback is editable
     if (this.role === 'dietician') {
       if (field === 'feedback') return false; // allow editing feedback
+      if (field === 'dietNote') return false; // allow editing Diet Note
       return true; // disable everything else
     }
     // Others follow canEditPatient gate

@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/roles';
 import AuditLog from '../models/auditLog';
 import DietAssignment from '../models/dietAssignment';
 import { istStartOfDayUTCForDate } from '../utils/time';
+import PatientMovement from '../models/patientMovement';
 
 const router = Router();
 
@@ -92,6 +93,22 @@ router.get('/', auth, async (req: Request, res: Response) => {
         for (const p of patients as any[]) {
           (p as any).dietHistory = histMap.get(String(p._id)) || [];
         }
+
+        // Attach movement history (recent up to 8) for display
+        const mAll = await PatientMovement.find({ patientId: { $in: ids }, ...(hid ? { hospitalId: hid } : {}) })
+          .select('patientId roomType roomNo bed start end')
+          .sort({ start: -1 })
+          .lean();
+        const moveMap = new Map<string, any[]>();
+        for (const m of mAll) {
+          const k = String((m as any).patientId);
+          if (!moveMap.has(k)) moveMap.set(k, []);
+          const arr = moveMap.get(k)!;
+          if (arr.length < 8) arr.push({ start: m.start, end: m.end, roomType: m.roomType, roomNo: m.roomNo, bed: m.bed });
+        }
+        for (const p of patients as any[]) {
+          (p as any).movementHistory = moveMap.get(String(p._id)) || [];
+        }
       }
     } catch (e) { /* non-fatal */ }
 
@@ -121,6 +138,22 @@ router.get('/', auth, async (req: Request, res: Response) => {
       }
       for (const p of patients as any[]) {
         (p as any).dietHistory = histMap.get(String(p._id)) || [];
+      }
+
+      // Attach movement history (recent up to 8)
+      const mAll = await PatientMovement.find({ patientId: { $in: ids }, ...(hid ? { hospitalId: hid } : {}) })
+        .select('patientId roomType roomNo bed start end')
+        .sort({ start: -1 })
+        .lean();
+      const moveMap = new Map<string, any[]>();
+      for (const m of mAll) {
+        const k = String((m as any).patientId);
+        if (!moveMap.has(k)) moveMap.set(k, []);
+        const arr = moveMap.get(k)!;
+        if (arr.length < 8) arr.push({ start: m.start, end: m.end, roomType: m.roomType, roomNo: m.roomNo, bed: m.bed });
+      }
+      for (const p of patients as any[]) {
+        (p as any).movementHistory = moveMap.get(String(p._id)) || [];
       }
     }
   } catch (e) { /* non-fatal */ }
@@ -178,17 +211,48 @@ router.get('/:id', auth, async (req: Request, res: Response) => {
   res.json(p);
 });
 
-// PUT /api/patients/:id/feedback - update only feedback (admin, diet-supervisor, dietician)
+// GET /api/patients/:id/movements - movement history for a patient
+router.get('/:id/movements', auth, async (req: Request, res: Response) => {
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const items = await PatientMovement.find({ patientId: req.params.id, ...(hid ? { hospitalId: hid } : {}) })
+      .sort({ start: -1 })
+      .select('_id roomType roomNo bed start end createdAt updatedAt')
+      .lean();
+    res.json(items);
+  } catch (e) {
+    console.error('load movements error', e);
+    res.status(500).json({ message: 'failed to load movements' });
+  }
+});
+
+// PUT /api/patients/:id/feedback - update feedback and optionally dietNote (admin, diet-supervisor, dietician)
 router.put('/:id/feedback', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
     const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
     if (!p) return res.status(404).json({ message: 'not found' });
     const feedback = req.body && typeof req.body.feedback === 'string' ? String(req.body.feedback) : '';
+    const dietNote = req.body && typeof req.body.dietNote === 'string' ? String(req.body.dietNote) : undefined;
     p.feedback = feedback;
+    if (dietNote !== undefined) {
+      p.dietNote = dietNote;
+    }
     await p.save();
-    try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'update-feedback', userId: (req as any).user?.id || null, details: { feedback } }); } catch {}
-    res.json({ _id: p._id, feedback: p.feedback });
+
+    // If dietNote updated, also sync today's pending assignment note (do not touch delivered)
+    if (dietNote !== undefined) {
+      try {
+        const today = istStartOfDayUTCForDate(new Date());
+        await DietAssignment.updateMany(
+          { patientId: p._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) },
+          { $set: { note: dietNote } }
+        );
+      } catch (e) { console.error('sync pending assignment note failed', e); }
+    }
+
+    try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'update-feedback', userId: (req as any).user?.id || null, details: { feedback, dietNote } }); } catch {}
+    res.json({ _id: p._id, feedback: p.feedback, dietNote: p.dietNote });
   } catch (e) {
     console.error('feedback update failed', e);
     res.status(500).json({ message: 'failed to update feedback' });
@@ -295,6 +359,20 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
     // audit
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'create', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
 
+    // Create initial movement record (effective from inDate start-of-day IST when available)
+    try {
+      const start = istStartOfDayUTCForDate(cleaned.inDate ? new Date(cleaned.inDate) : new Date());
+      await PatientMovement.create({
+        patientId: p._id,
+        hospitalId: hid || null,
+        roomType: cleaned.roomType || null,
+        roomNo: cleaned.roomNo || null,
+        bed: cleaned.bed || null,
+        start,
+        end: null
+      });
+    } catch (e) { console.error('initial movement create error', e); }
+
     // auto-create first diet assignment if diet is set
     if (cleaned.diet) {
       const DietAssignment = require('../models/dietAssignment').default;
@@ -344,17 +422,17 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
       return res.status(403).json({ message: 'patient is discharged; only admin can edit' });
     }
 
-    const updated = await Patient.findOneAndUpdate({ _id: existing._id }, cleaned, { new: true, runValidators: true, context: 'query' });
+  const updated = await Patient.findOneAndUpdate({ _id: existing._id }, cleaned, { new: true, runValidators: true, context: 'query' });
     // write audit
     try { await AuditLog.create({ entity: 'Patient', entityId: updated!._id, action: 'update', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
 
-    // If diet changed in detail form, modify the latest assignment instead of creating a new one
+    // If diet changed via patient detail, only update today's PENDING assignment (if any). Do NOT edit delivered.
     try {
       if (cleaned.diet && cleaned.diet !== existing.diet) {
         const DietAssignment = require('../models/dietAssignment').default;
-        const latest = await DietAssignment.findOne({ patientId: existing._id, ...(hid ? { hospitalId: hid } : {}) })
-          .sort({ date: -1, createdAt: -1 });
-        if (latest) {
+        const today = istStartOfDayUTCForDate(new Date());
+        const pendingToday = await DietAssignment.findOne({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) });
+        if (pendingToday) {
           // resolve price for the updated diet
           let priceForAssign = 0;
           try {
@@ -362,14 +440,64 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
             const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}) }).lean();
             if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
           } catch (e) {}
-          latest.diet = cleaned.diet;
-          if (cleaned.dietNote !== undefined) latest.note = cleaned.dietNote || '';
-          latest.price = priceForAssign;
-          await latest.save();
-          try { await AuditLog.create({ entity: 'DietAssignment', entityId: latest._id, action: 'update', userId: (req as any).user?.id || null, details: { diet: cleaned.diet, note: cleaned.dietNote, price: priceForAssign } }); } catch {}
+          pendingToday.diet = cleaned.diet;
+          if (cleaned.dietNote !== undefined) pendingToday.note = cleaned.dietNote || '';
+          pendingToday.price = priceForAssign;
+          await pendingToday.save();
+          try { await AuditLog.create({ entity: 'DietAssignment', entityId: pendingToday._id, action: 'update', userId: (req as any).user?.id || null, details: { diet: cleaned.diet, note: cleaned.dietNote, price: priceForAssign } }); } catch {}
         }
       }
-    } catch (e) { console.error('modify latest assignment on diet change failed', e); }
+    } catch (e) { console.error('update pending today assignment on diet change failed', e); }
+
+    // Handle room/bed movement tracking
+    try {
+      const roomChanged =
+        (cleaned.roomType !== undefined && String(cleaned.roomType || '') !== String(existing.roomType || '')) ||
+        (cleaned.roomNo !== undefined && String(cleaned.roomNo || '') !== String(existing.roomNo || '')) ||
+        (cleaned.bed !== undefined && String(cleaned.bed || '') !== String(existing.bed || ''));
+      const hid = (req as any).user?.hospitalId;
+      if (roomChanged) {
+        const now = new Date();
+        // Close existing open movement, if any
+        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}) }, { $set: { end: now } });
+        // Create a new movement from now
+        await PatientMovement.create({
+          patientId: existing._id,
+          hospitalId: hid || null,
+          roomType: cleaned.roomType !== undefined ? cleaned.roomType : existing.roomType || null,
+          roomNo: cleaned.roomNo !== undefined ? cleaned.roomNo : existing.roomNo || null,
+          bed: cleaned.bed !== undefined ? cleaned.bed : existing.bed || null,
+          start: now,
+          end: null
+        });
+
+        // Simple rule: on room change, ensure exactly one pending assignment for today reflecting current diet
+        // 1) Remove any existing pending assignment for today
+        const today = istStartOfDayUTCForDate(new Date());
+        await DietAssignment.deleteMany({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) });
+        // 2) Create a fresh pending assignment for today with the current diet (if available) if not discharged
+        const isDischarged = (cleaned.status || updated?.status) === 'discharged';
+        if (!isDischarged) {
+          const currentDiet = (cleaned.diet !== undefined ? cleaned.diet : updated?.diet) || existing.diet;
+          if (currentDiet) {
+            let priceForAssign = 0;
+            try {
+              const DietType = require('../models/dietType').default;
+              const dt = await DietType.findOne({ name: currentDiet, ...(hid ? { hospitalId: hid } : {}) }).lean();
+              if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
+            } catch {}
+            const note = (cleaned.dietNote !== undefined ? cleaned.dietNote : (updated as any)?.dietNote) || '';
+            const created = await DietAssignment.create({ patientId: existing._id, hospitalId: hid, date: today, diet: currentDiet, note, status: 'pending', price: priceForAssign });
+            try { await AuditLog.create({ entity: 'DietAssignment', entityId: created._id, action: 'create', userId: (req as any).user?.id || null, details: { reason: 'room-change', date: today, diet: currentDiet } }); } catch {}
+          }
+        }
+      }
+      // Close open movement when patient is discharged (use dischargeDate if provided)
+      if (cleaned.status === 'discharged' || updated?.status === 'discharged') {
+        const when = cleaned.dischargeDate ? new Date(cleaned.dischargeDate) : new Date();
+        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}) }, { $set: { end: when } });
+      }
+    } catch (e) { console.error('movement tracking error', e); }
     res.json(updated);
   } catch (err: any) {
     if (err?.code === 11000 && err?.keyPattern?.code) return res.status(400).json({ errors: [{ field: 'code', message: 'code already exists' }] });

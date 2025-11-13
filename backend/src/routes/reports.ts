@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import Patient from '../models/patient';
+import PatientMovement from '../models/patientMovement';
 import Hospital from '../models/hospital';
 import dayjs from 'dayjs';
 import DietAssignment from '../models/dietAssignment';
@@ -20,21 +21,62 @@ router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor'
     const roomType = (req.query.roomType as string) || '';
     const roomNo = (req.query.roomNo as string) || '';
 
-    const tz = IST_TZ; // Always use IST for this deployment
+  const tz = IST_TZ; // Always use IST for this deployment
 
-    const sel = qDate && dayjs(qDate).isValid() ? qDate : toIstDayString(new Date());
+  const sel = qDate && dayjs(qDate).isValid() ? qDate : toIstDayString(new Date());
+  const nowTs = new Date();
 
     // Aggregate to strictly match DietAssignment.date by selection date string
     const pipeline: any[] = [
+      // date as YYYY-MM-DD in IST for stable day boundaries
       { $addFields: { dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: tz } } } },
       { $match: { dateStr: sel, ...(hidObj ? { hospitalId: hidObj } : {}) } },
       { $sort: { date: 1, createdAt: 1 } },
       { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
-      { $unwind: '$p' }
+      { $unwind: '$p' },
+      // Compute an effective timestamp for the assignment using fromTime when provided (else noon IST)
+      {
+        $addFields: {
+          fromTimeSafe: {
+            $cond: [
+              { $regexMatch: { input: { $ifNull: ['$fromTime', ''] }, regex: /^(?:[01]\d|2[0-3]):[0-5]\d$/ } },
+              '$fromTime',
+              '12:00'
+            ]
+          },
+          assignTs: {
+            $dateFromString: {
+              dateString: { $concat: ['$dateStr', 'T', { $ifNull: ['$fromTimeSafe', '12:00'] }, ':00', tz] }
+            }
+          },
+          // Movement timestamp: delivered -> deliveredAt; else -> now (reflect move-before-delivery)
+          mvTs: {
+            $cond: [
+              { $and: [ { $eq: ['$status','delivered'] }, { $ne: ['$deliveredAt', null] } ] },
+              '$deliveredAt',
+              nowTs
+            ]
+          }
+        }
+      },
+      // Resolve effective movement at assignment timestamp
+      {
+        $lookup: {
+          from: 'patientmovements',
+          let: { pid: '$patientId', d: '$mvTs' },
+          pipeline: [
+            { $match: { $expr: { $and: [ { $eq: ['$patientId', '$$pid'] }, ...(hidObj ? [{ $eq: ['$hospitalId', hidObj] }] : []), { $lte: ['$start', '$$d'] }, { $or: [ { $eq: ['$end', null] }, { $gt: ['$end', '$$d'] } ] } ] } } },
+            { $sort: { start: -1 } },
+            { $limit: 1 }
+          ],
+          as: 'mv'
+        }
+      },
+      { $addFields: { mv: { $arrayElemAt: ['$mv', 0] } } }
     ];
 
-    if (roomType) pipeline.push({ $match: { 'p.roomType': roomType } });
-    if (roomNo) pipeline.push({ $match: { 'p.roomNo': roomNo } });
+  if (roomType) pipeline.push({ $match: { 'mv.roomType': roomType } });
+  if (roomNo) pipeline.push({ $match: { 'mv.roomNo': roomNo } });
 
     pipeline.push({
       $project: {
@@ -44,9 +86,9 @@ router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor'
         patientId: '$p._id',
         patientName: '$p.name',
         phone: { $ifNull: ['$p.phone', ''] },
-        roomType: { $ifNull: ['$p.roomType', ''] },
-        roomNo: { $ifNull: ['$p.roomNo', ''] },
-        bed: '$p.bed',
+        roomType: { $ifNull: ['$mv.roomType', { $ifNull: ['$p.roomType', ''] }] },
+        roomNo: { $ifNull: ['$mv.roomNo', { $ifNull: ['$p.roomNo', ''] }] },
+        bed: { $ifNull: ['$mv.bed', '$p.bed'] },
         diet: '$diet',
         note: '$note',
         status: '$status',
@@ -337,12 +379,23 @@ router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: R
       { $sort: { bucket: 1 } }
     ]);
 
-    // 2) By room type
+    // 2) By room type (effective movement at assignment date)
     const byRoomTypeGroups = await DietAssignment.aggregate([
       { $match: baseMatch },
-      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
-      { $unwind: '$p' },
-      { $group: { _id: { r: { $ifNull: ['$p.roomType', 'Unknown'] }, d: '$diet' }, count: { $sum: 1 } } },
+      {
+        $lookup: {
+          from: 'patientmovements',
+          let: { pid: '$patientId', d: '$date' },
+          pipeline: [
+            { $match: { $expr: { $and: [ { $eq: ['$patientId', '$$pid'] }, ...(hidObj ? [{ $eq: ['$hospitalId', hidObj] }] : []), { $lte: ['$start', '$$d'] }, { $or: [ { $eq: ['$end', null] }, { $gt: ['$end', '$$d'] } ] } ] } } },
+            { $sort: { start: -1 } },
+            { $limit: 1 }
+          ],
+          as: 'mv'
+        }
+      },
+      { $addFields: { mv: { $arrayElemAt: ['$mv', 0] } } },
+      { $group: { _id: { r: { $ifNull: ['$mv.roomType', 'Unknown'] }, d: '$diet' }, count: { $sum: 1 } } },
       { $project: { _id: 0, roomType: '$_id.r', diet: '$_id.d', count: 1 } },
       { $sort: { roomType: 1 } }
     ]);
@@ -395,7 +448,10 @@ router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: R
 
     // Pivot by room type into stacked datasets per diet
   // Determine full list of room types for the hospital to ensure zero-value categories appear
-  const distinctRoomTypes: string[] = await Patient.distinct('roomType', hidObj ? { hospitalId: hidObj } : {});
+  // Include distinct room types found in movements
+  const distinctRoomTypesPatients: string[] = await Patient.distinct('roomType', hidObj ? { hospitalId: hidObj } : {});
+  const distinctRoomTypesMoves: string[] = await PatientMovement.distinct('roomType', hidObj ? { hospitalId: hidObj } : {});
+  const distinctRoomTypes = Array.from(new Set([...(distinctRoomTypesPatients || []), ...(distinctRoomTypesMoves || [])]));
   const fullRoomTypes = Array.from(new Set([...(distinctRoomTypes || []).filter(rt => !!rt && String(rt).trim() !== ''), 'Unknown'])).sort();
 
   const roomDietSet = new Set<string>();

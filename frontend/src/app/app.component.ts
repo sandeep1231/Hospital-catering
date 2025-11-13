@@ -7,7 +7,7 @@ import { Router } from '@angular/router';
   template: `
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
     <div class="container">
-      <a class="navbar-brand" routerLink="/" (click)="closeNav()">Hospital Catering</a>
+  <a class="navbar-brand" routerLink="/" (click)="closeNav()">Urbane Foods</a>
       <button class="navbar-toggler" type="button" (click)="navOpen = !navOpen" aria-controls="nav" [attr.aria-expanded]="navOpen" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -44,18 +44,18 @@ import { Router } from '@angular/router';
   <footer class="bg-dark text-white py-4 mt-5">
     <div class="container d-flex justify-content-between align-items-center">
       <div>
-        <strong>Hospital Catering</strong>
+  <strong>Urbane Foods</strong>
         <div class="small">Manage diet plans, orders and deliveries</div>
       </div>
-      <div class="small">© {{ year }} Hospital Catering</div>
+  <div class="small">© {{ year }} Urbane Foods</div>
     </div>
   </footer>
   `
 })
-export class AppComponent { 
+export class AppComponent {
   year = new Date().getFullYear();
   navOpen = false;
-  constructor(public api: ApiService, private router: Router) {}
+  constructor(public api: ApiService, private router: Router) { }
   get isAdmin() { return this.api.getUserRole() === 'admin'; }
   get isReports() { const r = this.api.getUserRole(); return r === 'admin'; }
   get isDietSupervisorOrAdmin() { const r = this.api.getUserRole(); return r === 'admin' || r === 'diet-supervisor' || r === 'dietician'; }

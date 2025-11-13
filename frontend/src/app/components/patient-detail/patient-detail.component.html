@@ -201,6 +201,8 @@
           <thead>
             <tr>
               <th>Date</th>
+              <th>Room</th>
+              <th>Bed</th>
               <th>Diet</th>
               <th>Note</th>
               <th class="text-end">Actions</th>
@@ -209,6 +211,8 @@
           <tbody>
             <tr *ngFor="let a of filtered">
               <td>{{a.date | date:'mediumDate':'Asia/Kolkata'}}</td>
+              <td>{{a.roomType || '—'}} / {{a.roomNo || '—'}}</td>
+              <td>{{a.bed || '—'}}</td>
               <td>
                 <span class="me-2">{{a.diet}}</span>
                 <span class="badge bg-secondary" *ngIf="a.status==='pending'">Pending</span>
@@ -224,7 +228,7 @@
               </td>
             </tr>
             <tr *ngIf="filtered?.length===0">
-              <td colspan="4" class="text-center text-muted">No assignments</td>
+              <td colspan="6" class="text-center text-muted">No assignments</td>
             </tr>
           </tbody>
         </table>
@@ -260,6 +264,39 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Movement history -->
+  <div *ngIf="patient" class="card mt-3">
+    <div class="card-header">Movement history</div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>From</th>
+              <th>To</th>
+              <th>Room Type</th>
+              <th>Room No</th>
+              <th>Bed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of movements">
+              <td>{{m.start | date:'medium':'Asia/Kolkata'}}</td>
+              <td>{{m.end ? (m.end | date:'medium':'Asia/Kolkata') : 'Present'}}</td>
+              <td>{{m.roomType || '—'}}</td>
+              <td>{{m.roomNo || '—'}}</td>
+              <td>{{m.bed || '—'}}</td>
+            </tr>
+            <tr *ngIf="movements?.length===0">
+              <td colspan="5" class="text-center text-muted">No movement history</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="small text-muted">History is updated automatically when room type/number/bed is changed or on discharge.</div>
     </div>
   </div>
 

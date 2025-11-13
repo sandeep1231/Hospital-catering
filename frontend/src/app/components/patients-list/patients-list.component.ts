@@ -152,6 +152,12 @@ export class PatientsListComponent implements OnInit {
     return [...p.dietHistory].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
+  // Movement history sorted by start desc
+  sortedMoves(p: any): any[] {
+    if (!p || !Array.isArray(p.movementHistory)) return [];
+    return [...p.movementHistory].sort((a: any, b: any) => new Date(b.start).getTime() - new Date(a.start).getTime());
+  }
+
   isHistoryExpanded(p: any): boolean { return !!this.expandedHistory[p?._id]; }
   toggleHistory(p: any) { if (!p?._id) return; this.expandedHistory[p._id] = !this.expandedHistory[p._id]; }
 }
