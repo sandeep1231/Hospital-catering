@@ -12,7 +12,7 @@ export class ApiService {
     const localBase = 'http://localhost:4000/api';
     try {
       const host = (typeof window !== 'undefined' && window.location && window.location.host) ? window.location.host : '';
-      if (host.includes('github.io')) return renderBase;
+      if (host.includes('github.io') || host.includes('onrender.com') || host.includes('switchinsolutions.com')) return renderBase;
       return localBase;
     } catch {
       return localBase;

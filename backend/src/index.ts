@@ -22,7 +22,7 @@ process.env.TZ = 'Asia/Kolkata';
 const app = express();
 app.use(compression());
 app.use(cors({ origin: true, credentials: true, maxAge: 86400 }));
-app.options('*', cors());
+// app.options('*', cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
