@@ -2,6 +2,13 @@
   <div class="d-flex mb-3 align-items-center">
     <button class="btn btn-sm btn-link me-2" (click)="back()">← Back</button>
     <h4 class="mb-0">Patient detail</h4>
+    <button class="btn btn-sm btn-outline-danger ms-auto"
+            *ngIf="patient && patient.status !== 'discharged' && (role === 'admin' || role === 'diet-supervisor')"
+            (click)="quickDischarge()" [disabled]="discharging">
+      <span class="spinner-border spinner-border-sm me-1" *ngIf="discharging" role="status" aria-hidden="true"></span>
+      Quick Discharge
+    </button>
+    <span class="badge bg-secondary ms-auto" *ngIf="patient && patient.status === 'discharged'">Discharged</span>
   </div>
 
   <div *ngIf="patient" class="card mb-3">

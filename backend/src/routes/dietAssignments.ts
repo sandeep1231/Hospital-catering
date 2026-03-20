@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import { istStartOfDayUTCForDate, addIstDaysUTC, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD } from '../utils/time';
 import mongoose from 'mongoose';
 import PatientMovement from '../models/patientMovement';
+import { notify } from '../utils/notify';
 
 const router = Router();
 
@@ -41,6 +42,18 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
     const created = await DietAssignment.create({ patientId, hospitalId: hid, date: d, fromTime, toTime, diet, note, status: 'pending', price: finalPrice });
   // audit log
   try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: created._id, action: 'create', userId: (req as any).user?.id || null, details: created }); } catch (e) { console.error('audit error', e); }
+
+  // notification
+  notify({
+    hospitalId: hid,
+    type: 'diet_assigned',
+    title: 'Diet Assigned',
+    message: `${diet} diet assigned to ${patient.name} by ${(req as any).user?.name || 'staff'}`,
+    link: `/patients/${patientId}`,
+    createdBy: (req as any).user?.id,
+    createdByName: (req as any).user?.name,
+  });
+
   res.status(201).json(created);
   } catch (err) {
     console.error(err);
@@ -137,10 +150,60 @@ router.post('/:id/deliver', auth, requireRole('admin','diet-supervisor','dietici
   if (!updated) return res.status(404).json({ message: 'not found' });
   // audit log
   try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: updated._id, action: 'deliver', userId: (req as any).user?.id || null, details: updated }); } catch (e) { console.error('audit error', e); }
+
+  // notification
+  notify({
+    hospitalId: hid,
+    type: 'diet_delivered',
+    title: 'Diet Delivered',
+    message: `${updated.diet} diet delivered by ${(req as any).user?.name || 'staff'}`,
+    link: `/diet-supervisor`,
+    createdBy: (req as any).user?.id,
+    createdByName: (req as any).user?.name,
+  });
+
   res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'failed to mark delivered' });
+  }
+});
+
+// Bulk mark delivered (admin, diet-supervisor, dietician)
+router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
+  try {
+    const ids: string[] = req.body.ids || [];
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'ids required' });
+    const hid = (req as any).user?.hospitalId;
+    const userId = (req as any).user?.id;
+    const now = new Date();
+    const cond: any = { _id: { $in: ids }, status: 'pending' };
+    if (hid) cond.hospitalId = hid;
+    const result = await DietAssignment.updateMany(cond, { status: 'delivered', deliveredAt: now, deliveredBy: userId });
+    try {
+      const AuditLog = require('../models/auditLog').default;
+      for (const id of ids) {
+        await AuditLog.create({ entity: 'DietAssignment', entityId: id, action: 'bulk-deliver', userId, details: { bulk: true } });
+      }
+    } catch (e) { console.error('audit error', e); }
+
+    // notification
+    if (result.modifiedCount > 0) {
+      notify({
+        hospitalId: hid,
+        type: 'diet_delivered',
+        title: 'Bulk Diet Delivery',
+        message: `${result.modifiedCount} diets delivered by ${(req as any).user?.name || 'staff'}`,
+        link: `/diet-supervisor`,
+        createdBy: userId,
+        createdByName: (req as any).user?.name,
+      });
+    }
+
+    res.json({ modifiedCount: result.modifiedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'bulk deliver failed' });
   }
 });
 
@@ -238,6 +301,19 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), async (req: R
       results.push({ date: day, action: 'created', id: created._id });
     }
 
+    // notification
+    if (results.length > 0) {
+      notify({
+        hospitalId: hid,
+        type: 'diet_assigned',
+        title: 'Bulk Diet Assigned',
+        message: `${results.length} ${diet} diets assigned to ${patient.name} by ${(req as any).user?.name || 'staff'}`,
+        link: `/patients/${patientId}`,
+        createdBy: (req as any).user?.id,
+        createdByName: (req as any).user?.name,
+      });
+    }
+
     res.json({ count: results.length, results });
   } catch (err) {
     console.error(err);
@@ -286,6 +362,19 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), async (req:
       // Always create a new assignment for change action
       const created = await DietAssignment.create({ patientId, hospitalId: hid, date: day, diet: newDiet, note, status: 'pending', price });
       results.push({ date: day, action: 'created', id: created._id });
+    }
+
+    // notification
+    if (results.length > 0) {
+      notify({
+        hospitalId: hid,
+        type: 'diet_changed',
+        title: 'Diet Changed',
+        message: `${patient.name}'s diet changed to ${newDiet} (${results.length} days) by ${(req as any).user?.name || 'staff'}`,
+        link: `/patients/${patientId}`,
+        createdBy: (req as any).user?.id,
+        createdByName: (req as any).user?.name,
+      });
     }
 
     res.json({ count: results.length, results });

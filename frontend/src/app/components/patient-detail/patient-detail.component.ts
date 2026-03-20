@@ -24,6 +24,7 @@ export class PatientDetailComponent implements OnInit {
   // Diet options for the patient diet select: active diets + current patient's diet if inactive
   dietOptionsPatient: any[] = [];
   role: string | null = null;
+  discharging: boolean = false;
   // loading flags
   isSaving: boolean = false;
   changeDietLoading: boolean = false;
@@ -308,6 +309,25 @@ export class PatientDetailComponent implements OnInit {
   }
 
   reset() { this.ngOnInit(); }
+
+  quickDischarge() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) return;
+    if (!confirm('Are you sure you want to discharge this patient? This will cancel all pending diet assignments from today.')) return;
+    this.discharging = true;
+    this.api.post(`/patients/${id}/discharge`, {}).subscribe((res: any) => {
+      this.toast.success('Patient discharged successfully');
+      this.patient = this.normalizeDates(res);
+      this.prefillTimes();
+      this.loadAssignments();
+      this.loadMovements();
+      this.discharging = false;
+    }, err => {
+      this.toast.error(err?.error?.message || 'Discharge failed');
+      console.error(err);
+      this.discharging = false;
+    });
+  }
 
   clientValidate(): boolean {
     const fe: any = {};

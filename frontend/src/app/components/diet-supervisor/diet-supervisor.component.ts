@@ -25,6 +25,9 @@ export class DietSupervisorComponent implements OnInit {
   dietTotals: Array<{ name: string; count: number }> = [];
   // Live badges under toolbar
   badgeTotals: Array<{ name: string; count: number }> = [];
+  // Bulk deliver
+  selected: Record<string, boolean> = {};
+  bulkDelivering = false;
   constructor(private api: ApiService, private toast: ToastService) {}
   ngOnInit(): void {
     // set local today as default date (avoid UTC shift)
@@ -153,5 +156,66 @@ export class DietSupervisorComponent implements OnInit {
   paged(): any[] {
     const start = (this.page - 1) * this.pageSize;
     return this.view.slice(start, start + this.pageSize);
+  }
+
+  // Bulk deliver
+  toggleSelect(a: any) {
+    const id = a._id || a.id;
+    this.selected[id] = !this.selected[id];
+  }
+
+  isSelected(a: any): boolean {
+    return !!this.selected[a._id || a.id];
+  }
+
+  get pendingOnPage(): any[] {
+    return this.paged().filter(a => a.status === 'pending');
+  }
+
+  get selectedPendingCount(): number {
+    return this.pendingOnPage.filter(a => this.selected[a._id || a.id]).length;
+  }
+
+  get allPendingSelected(): boolean {
+    const pending = this.pendingOnPage;
+    return pending.length > 0 && pending.every(a => this.selected[a._id || a.id]);
+  }
+
+  toggleSelectAll() {
+    const pending = this.pendingOnPage;
+    const allSelected = this.allPendingSelected;
+    for (const a of pending) {
+      this.selected[a._id || a.id] = !allSelected;
+    }
+  }
+
+  bulkDeliver() {
+    const ids = this.pendingOnPage
+      .filter(a => this.selected[a._id || a.id])
+      .map(a => a._id || a.id);
+    if (ids.length === 0) return;
+    if (!confirm(`Mark ${ids.length} assignment(s) as delivered?`)) return;
+    this.bulkDelivering = true;
+    this.api.post('/diet-assignments/bulk-deliver', { ids }).subscribe((res: any) => {
+      this.bulkDelivering = false;
+      this.toast.success(`${res.modifiedCount || ids.length} marked as delivered`);
+      // Optimistic update
+      for (const id of ids) {
+        const a = this.assignments.find(x => (x._id || x.id) === id);
+        if (a) a.status = 'delivered';
+        delete this.selected[id];
+      }
+      this.recomputeTotals();
+      this.applyQuickFilter();
+    }, err => {
+      this.bulkDelivering = false;
+      this.toast.error('Bulk deliver failed');
+      console.error(err);
+    });
+  }
+
+  // Print
+  printDietSheet() {
+    window.print();
   }
 }

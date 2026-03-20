@@ -19,3 +19,13 @@ table.table th.w-status, table.table td:nth-child(8) { min-width: 160px; }
 
 /* Keep status text and button on a single line */
 table.table th.w-status, table.table td:nth-child(8) { white-space: nowrap; }
+
+/* Print styles */
+@media print {
+  .d-print-none { display: none !important; }
+  .card { border: none !important; box-shadow: none !important; }
+  .card-footer { display: none !important; }
+  table.table { font-size: 12px; }
+  table.table th, table.table td { padding: 4px 6px; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

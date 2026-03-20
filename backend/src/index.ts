@@ -11,6 +11,11 @@ import { seedDemo } from './utils/seed';
 import reportRoutes from './routes/reports';
 import dietAssignmentRoutes from './routes/dietAssignments';
 import dietTypeRoutes from './routes/dietTypes';
+import orderRoutes from './routes/orders';
+import menuItemRoutes from './routes/menuItems';
+import dietPlanRoutes from './routes/dietPlans';
+import auditLogRoutes from './routes/auditLogs';
+import notificationRoutes from './routes/notifications';
 import Hospital from './models/hospital';
 import { fixIndexes } from './utils/fixIndexes';
 
@@ -32,6 +37,11 @@ app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/diet-assignments', dietAssignmentRoutes);
 app.use('/api/diets', dietTypeRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/menu-items', menuItemRoutes);
+app.use('/api/diet-plans', dietPlanRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 const PORT = process.env.PORT || 4000;
 

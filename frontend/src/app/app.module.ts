@@ -22,10 +22,13 @@ import { AdminMenuComponent } from './components/admin-menu/admin-menu.component
 import { AdminDietsComponent } from './components/admin-diets/admin-diets.component';
 import { ReportsDashboardComponent } from './components/reports-dashboard/reports-dashboard.component';
 import { DietSupervisorComponent } from './components/diet-supervisor/diet-supervisor.component';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { AuditLogViewerComponent } from './components/audit-log-viewer/audit-log-viewer.component';
+import { NotificationBellComponent } from './components/notification-bell/notification-bell.component';
 import { AuthInterceptor } from './services/auth-interceptor.service';
 
 @NgModule({
-  declarations: [AppComponent, LoginComponent, PatientsListComponent, OrdersComponent, DietPlanEditorComponent, ToastContainerComponent, ConfirmDeliverModalComponent, PatientCreateComponent, PatientDetailComponent, RegisterComponent, AdminUsersComponent, AdminInviteComponent, ManualOrderComponent, AdminMenuComponent, ReportsDashboardComponent, DietSupervisorComponent, AdminDietsComponent],
+  declarations: [AppComponent, LoginComponent, PatientsListComponent, OrdersComponent, DietPlanEditorComponent, ToastContainerComponent, ConfirmDeliverModalComponent, PatientCreateComponent, PatientDetailComponent, RegisterComponent, AdminUsersComponent, AdminInviteComponent, ManualOrderComponent, AdminMenuComponent, ReportsDashboardComponent, DietSupervisorComponent, AdminDietsComponent, DashboardComponent, AuditLogViewerComponent, NotificationBellComponent],
   imports: [BrowserModule, HttpClientModule, AppRoutingModule, FormsModule, NgxEchartsModule.forRoot({ echarts: () => import('echarts') })],
   providers: [
     ToastService,

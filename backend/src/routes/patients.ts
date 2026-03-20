@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Patient from '../models/patient';
 import auth from '../middleware/auth';
-import { requireRole } from '../middleware/roles';
-import AuditLog from '../models/auditLog';
+import { requireRole } from '../middleware/roles';import { notify } from '../utils/notify';import AuditLog from '../models/auditLog';
 import DietAssignment from '../models/dietAssignment';
 import { istStartOfDayUTCForDate } from '../utils/time';
 import PatientMovement from '../models/patientMovement';
@@ -204,6 +203,39 @@ router.get('/meta/room-nos', auth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/patients/dashboard/stats - KPIs for the dashboard (auth)
+router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const base: any = hid ? { hospitalId: hid } : {};
+    const today = istStartOfDayUTCForDate(new Date());
+
+    const [totalIn, totalDischarged, totalPatients] = await Promise.all([
+      Patient.countDocuments({ ...base, status: 'in_patient' }),
+      Patient.countDocuments({ ...base, status: 'discharged' }),
+      Patient.countDocuments(base)
+    ]);
+
+    const [dietPending, dietDelivered, dietCancelled] = await Promise.all([
+      DietAssignment.countDocuments({ ...base, date: today, status: 'pending' }),
+      DietAssignment.countDocuments({ ...base, date: today, status: 'delivered' }),
+      DietAssignment.countDocuments({ ...base, date: today, status: 'cancelled' })
+    ]);
+
+    res.json({
+      totalPatients,
+      inPatients: totalIn,
+      discharged: totalDischarged,
+      todayDietPending: dietPending,
+      todayDietDelivered: dietDelivered,
+      todayDietCancelled: dietCancelled
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'failed to load dashboard stats' });
+  }
+});
+
 router.get('/:id', auth, async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
   const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
@@ -358,6 +390,17 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
     await p.save();
     // audit
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'create', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
+
+    // notification
+    notify({
+      hospitalId: hid,
+      type: 'patient_admitted',
+      title: 'New Patient Admitted',
+      message: `${cleaned.name} admitted by ${(req as any).user?.name || 'staff'}`,
+      link: `/patients/${p._id}`,
+      createdBy: (req as any).user?.id,
+      createdByName: (req as any).user?.name,
+    });
 
     // Create initial movement record (effective from inDate start-of-day IST when available)
     try {
@@ -522,5 +565,55 @@ router.delete('/:id', auth, requireRole('admin'), async (req: Request, res: Resp
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: 'failed to delete' });
+  }
+});
+
+// POST /api/patients/:id/discharge - Quick discharge action (admin, diet-supervisor)
+router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
+  try {
+    const hid = (req as any).user?.hospitalId;
+    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+    if (!p) return res.status(404).json({ message: 'not found' });
+    if (p.status === 'discharged') return res.status(400).json({ message: 'patient already discharged' });
+
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+
+    p.status = 'discharged';
+    p.dischargeDate = now;
+    p.dischargeTime = `${hh}:${mm}`;
+    await p.save();
+
+    // Close open movements
+    await PatientMovement.updateMany(
+      { patientId: p._id, end: null, ...(hid ? { hospitalId: hid } : {}) },
+      { $set: { end: now } }
+    );
+
+    // Cancel any pending diet assignments from today forward
+    const today = istStartOfDayUTCForDate(now);
+    await DietAssignment.updateMany(
+      { patientId: p._id, date: { $gte: today }, status: 'pending', ...(hid ? { hospitalId: hid } : {}) },
+      { $set: { status: 'cancelled' } }
+    );
+
+    try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'discharge', userId: (req as any).user?.id || null, details: { dischargeDate: now, dischargeTime: `${hh}:${mm}` } }); } catch {}
+
+    // notification
+    notify({
+      hospitalId: hid,
+      type: 'patient_discharged',
+      title: 'Patient Discharged',
+      message: `${p.name} discharged by ${(req as any).user?.name || 'staff'}`,
+      link: `/patients/${p._id}`,
+      createdBy: (req as any).user?.id,
+      createdByName: (req as any).user?.name,
+    });
+
+    res.json(p);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'failed to discharge patient' });
   }
 });
