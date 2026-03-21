@@ -28,8 +28,10 @@ export class DietSupervisorComponent implements OnInit {
   // Bulk deliver
   selected: Record<string, boolean> = {};
   bulkDelivering = false;
+  readOnly = false;
   constructor(private api: ApiService, private toast: ToastService) {}
   ngOnInit(): void {
+    this.readOnly = this.api.getReadOnly();
     // set local today as default date (avoid UTC shift)
     this.date = this.getLocalDateString(new Date());
     this.load();

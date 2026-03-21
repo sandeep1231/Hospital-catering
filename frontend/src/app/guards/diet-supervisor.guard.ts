@@ -9,9 +9,16 @@ export class DietSupervisorGuard implements CanActivate {
   canActivate(): boolean {
     if (!this.api.isLoggedIn()) { this.router.navigate(['/login']); return false; }
     const r = this.api.getUserRole();
-    if (r === 'admin' || r === 'diet-supervisor' || r === 'dietician') return true;
+    if (r === 'admin' || r === 'diet-supervisor' || r === 'dietician' || r === 'super-admin') {
+      // Block access if no hospital assigned
+      if (!this.api.getUser()?.hospitalId) {
+        this.router.navigate([r === 'admin' ? '/admin/hospitals' : '/login']);
+        return false;
+      }
+      return true;
+    }
     this.toast.error('Diet supervisor access required');
-    this.router.navigate(['/']);
+    this.router.navigate(['/dashboard']);
     return false;
   }
 }

@@ -6,6 +6,7 @@ export type DietStatus = 'pending' | 'delivered' | 'cancelled';
 export interface IDietAssignment extends Document {
   patientId: mongoose.Types.ObjectId;
   hospitalId?: mongoose.Types.ObjectId;
+  vendorId?: mongoose.Types.ObjectId;
   date: Date; // date-only (start of day)
   fromTime?: string; // optional start time HH:MM
   toTime?: string;   // optional end time HH:MM
@@ -20,6 +21,7 @@ export interface IDietAssignment extends Document {
 const DietAssignmentSchema = new Schema<IDietAssignment>({
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
+  vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
   date: { type: Date, required: true },
   fromTime: { type: String },
   toTime: { type: String },
@@ -31,6 +33,6 @@ const DietAssignmentSchema = new Schema<IDietAssignment>({
   price: { type: Number, default: 0 }
 }, { timestamps: true });
 
-DietAssignmentSchema.index({ hospitalId: 1, patientId: 1, date: 1 });
+DietAssignmentSchema.index({ hospitalId: 1, vendorId: 1, patientId: 1, date: 1 });
 
 export default mongoose.model<IDietAssignment>('DietAssignment', DietAssignmentSchema);

@@ -2,7 +2,7 @@
   <div class="mb-3 d-flex justify-content-between align-items-center">
     <h4 class="mb-0">Patients</h4>
     <div>
-      <button class="btn btn-primary me-2" (click)="newPatient()" *ngIf="role !== 'dietician'">New Patient</button>
+      <button class="btn btn-primary me-2" (click)="newPatient()" *ngIf="role !== 'dietician' && !readOnly">New Patient</button>
     </div>
   </div>
 
@@ -125,7 +125,7 @@
                   <button class="btn btn-sm btn-outline-primary me-2" (click)="open(p)" title="View / Edit">
                     View
                   </button>
-                  <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
+                  <button *ngIf="role==='admin' && !readOnly" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete">
                     Delete
                   </button>
                 </td>
@@ -194,7 +194,7 @@
               </div>
               <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-sm btn-outline-primary" (click)="open(p)" title="Edit / View" aria-label="Edit">✏️</button>
-                <button *ngIf="role==='admin'" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete" aria-label="Delete">🗑️</button>
+                <button *ngIf="role==='admin' && !readOnly" class="btn btn-sm btn-outline-danger" (click)="delete(p)" title="Delete" aria-label="Delete">🗑️</button>
               </div>
             </div>
             <div class="small text-muted mt-1"><strong>Phone:</strong> {{p.phone || '—'}}</div>

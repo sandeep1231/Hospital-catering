@@ -1,4 +1,5 @@
 <div class="container">
+  <div *ngIf="readOnly" class="alert alert-warning"><i class="bi bi-lock-fill me-1"></i>Read-only mode — you cannot create orders.</div>
   <div class="d-flex align-items-center mb-3">
     <h4 class="me-auto mb-0">Create Order</h4>
     <a class="btn btn-outline-secondary" routerLink="/orders">Back to Orders</a>
@@ -63,7 +64,7 @@
         </div>
 
         <div class="text-end">
-          <button class="btn btn-primary" type="submit">Create Order</button>
+          <button class="btn btn-primary" type="submit" [disabled]="readOnly">Create Order</button>
         </div>
       </div>
     </div>

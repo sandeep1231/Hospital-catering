@@ -14,7 +14,6 @@ import { PatientCreateComponent } from './components/patient-create/patient-crea
 import { FormsModule } from '@angular/forms';
 import { NgxEchartsModule } from 'ngx-echarts';
 import { PatientDetailComponent } from './components/patient-detail/patient-detail.component';
-import { RegisterComponent } from './components/register/register.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
 import { AdminInviteComponent } from './components/admin-invite/admin-invite.component';
 import { ManualOrderComponent } from './components/manual-order/manual-order.component';
@@ -26,9 +25,16 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { AuditLogViewerComponent } from './components/audit-log-viewer/audit-log-viewer.component';
 import { NotificationBellComponent } from './components/notification-bell/notification-bell.component';
 import { AuthInterceptor } from './services/auth-interceptor.service';
+import { VendorRegisterComponent } from './components/vendor-register/vendor-register.component';
+import { SADashboardComponent } from './components/super-admin/dashboard/sa-dashboard.component';
+import { SAVendorsComponent } from './components/super-admin/vendors/sa-vendors.component';
+import { SAVendorDetailComponent } from './components/super-admin/vendor-detail/sa-vendor-detail.component';
+import { SAHospitalsComponent } from './components/super-admin/hospitals/sa-hospitals.component';
+import { SARequestsComponent } from './components/super-admin/requests/sa-requests.component';
+import { VendorHospitalsComponent } from './components/vendor-hospitals/vendor-hospitals.component';
 
 @NgModule({
-  declarations: [AppComponent, LoginComponent, PatientsListComponent, OrdersComponent, DietPlanEditorComponent, ToastContainerComponent, ConfirmDeliverModalComponent, PatientCreateComponent, PatientDetailComponent, RegisterComponent, AdminUsersComponent, AdminInviteComponent, ManualOrderComponent, AdminMenuComponent, ReportsDashboardComponent, DietSupervisorComponent, AdminDietsComponent, DashboardComponent, AuditLogViewerComponent, NotificationBellComponent],
+  declarations: [AppComponent, LoginComponent, PatientsListComponent, OrdersComponent, DietPlanEditorComponent, ToastContainerComponent, ConfirmDeliverModalComponent, PatientCreateComponent, PatientDetailComponent, AdminUsersComponent, AdminInviteComponent, ManualOrderComponent, AdminMenuComponent, ReportsDashboardComponent, DietSupervisorComponent, AdminDietsComponent, DashboardComponent, AuditLogViewerComponent, NotificationBellComponent, VendorRegisterComponent, SADashboardComponent, SAVendorsComponent, SAVendorDetailComponent, SAHospitalsComponent, SARequestsComponent, VendorHospitalsComponent],
   imports: [BrowserModule, HttpClientModule, AppRoutingModule, FormsModule, NgxEchartsModule.forRoot({ echarts: () => import('echarts') })],
   providers: [
     ToastService,

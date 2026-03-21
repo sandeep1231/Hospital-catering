@@ -1,9 +1,9 @@
 <div class="d-flex mb-3 align-items-center">
   <h4 class="me-auto">Menu Items</h4>
-  <button class="btn btn-sm btn-outline-primary" (click)="startCreate()" *ngIf="!creating">+ New Item</button>
+  <button class="btn btn-sm btn-outline-primary" (click)="startCreate()" *ngIf="!creating && !readOnly">+ New Item</button>
 </div>
 
-<div class="card mb-3" *ngIf="creating">
+<div class="card mb-3" *ngIf="creating && !readOnly">
   <div class="card-body">
     <h5 class="mb-3">Create Menu Item</h5>
     <div class="row g-2">
@@ -76,8 +76,8 @@
 
             <td class="text-end">
               <ng-container *ngIf="editingId !== it._id; else editBtns">
-                <button class="btn btn-sm btn-outline-primary me-2" (click)="startEdit(it)">Edit</button>
-                <button class="btn btn-sm btn-outline-danger" (click)="remove(it)">Delete</button>
+                <button class="btn btn-sm btn-outline-primary me-2" (click)="startEdit(it)" *ngIf="!readOnly">Edit</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="remove(it)" *ngIf="!readOnly">Delete</button>
               </ng-container>
               <ng-template #editBtns>
                 <button class="btn btn-sm btn-primary me-2" (click)="saveEdit()">Save</button>

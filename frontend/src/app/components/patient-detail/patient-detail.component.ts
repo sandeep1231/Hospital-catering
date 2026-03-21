@@ -41,10 +41,12 @@ export class PatientDetailComponent implements OnInit {
   dischargeAmpm: 'AM' | 'PM' = 'AM';
 
   constructor(private route: ActivatedRoute, private api: ApiService, private router: Router, private toast: ToastService) {}
+  readOnly = false;
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     this.role = this.api.getUserRole();
+    this.readOnly = this.api.getReadOnly();
     if (!id) return;
     this.api.get('/patients/' + id).subscribe((res: any) => { this.patient = this.normalizeDates(res); this.prefillTimes(); this.buildPatientDietOptions(); }, (err) => {
       console.error(err);

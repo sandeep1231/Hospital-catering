@@ -17,10 +17,11 @@ export class AdminMenuComponent implements OnInit {
   newItem: any = { name: '', price: 0, description: '', dietTags: '', calories: null, allergens: '' };
   editingId: string | null = null;
   editItem: any = {};
+  readOnly = false;
 
   constructor(private api: ApiService, private toast: ToastService) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.readOnly = this.api.getReadOnly(); this.load(); }
 
   load() {
     this.loading = true;

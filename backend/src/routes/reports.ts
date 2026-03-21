@@ -16,7 +16,9 @@ const router = Router();
 router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const vidObj = (vid && mongoose.Types.ObjectId.isValid(vid)) ? new mongoose.Types.ObjectId(vid) : null;
     const qDate = String((req.query.date as string) || '').trim();
     const roomType = (req.query.roomType as string) || '';
     const roomNo = (req.query.roomNo as string) || '';
@@ -30,7 +32,7 @@ router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor'
     const pipeline: any[] = [
       // date as YYYY-MM-DD in IST for stable day boundaries
       { $addFields: { dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: tz } } } },
-      { $match: { dateStr: sel, ...(hidObj ? { hospitalId: hidObj } : {}) } },
+      { $match: { dateStr: sel, ...(hidObj ? { hospitalId: hidObj } : {}), ...(vidObj ? { vendorId: vidObj } : {}) } },
       { $sort: { date: 1, createdAt: 1 } },
       { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
       { $unwind: '$p' },
@@ -112,7 +114,9 @@ router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor'
 router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const vidObj = (vid && mongoose.Types.ObjectId.isValid(vid)) ? new mongoose.Types.ObjectId(vid) : null;
   const tz = IST_TZ; // Fixed IST
     const fromStr = String(req.query.from || '').trim();
     const toStr = String(req.query.to || '').trim();
@@ -131,6 +135,7 @@ router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Req
       dischargeDate: { $gte: start, $lte: end }
     };
     if (hidObj) matchPatients.hospitalId = hidObj;
+    if (vidObj) matchPatients.vendorId = vidObj;
 
     // Aggregate to compute bill per patient by summing DietAssignments during their stay
     const rows = await Patient.aggregate([
@@ -257,7 +262,9 @@ export default router;
 router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const vidObj = (vid && mongoose.Types.ObjectId.isValid(vid)) ? new mongoose.Types.ObjectId(vid) : null;
     const tz = IST_TZ; // Fixed IST
 
     const fromStr = String(req.query.from || '').trim();
@@ -277,6 +284,7 @@ router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: R
       baseMatch.status = statusParam;
     }
     if (hidObj) baseMatch.hospitalId = hidObj;
+    if (vidObj) baseMatch.vendorId = vidObj;
 
     // Helper: bucket expression per granularity as a string field 'bucket'
     const bucketAddFields: any = gran === 'monthly'

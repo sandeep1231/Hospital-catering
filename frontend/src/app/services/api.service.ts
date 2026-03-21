@@ -30,6 +30,7 @@ export class ApiService {
   get(path: string, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.get(this.base + path, options); }
   post(path: string, body: any, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.post(this.base + path, body, options); }
   put(path: string, body: any, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.put(this.base + path, body, options); }
+  patch(path: string, body: any, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.patch(this.base + path, body, options); }
   delete(path: string, params?: any) { const options = this.getHeaders(); if (params) options.params = params; return this.http.delete(this.base + path, options); }
 
   // blob download with auth header
@@ -59,6 +60,9 @@ export class ApiService {
 
   getUser() { return this.parseJwt(this.getToken()); }
   getUserRole() { const u: any = this.getUser(); return u?.role || null; }
+  getVendorId() { const u: any = this.getUser(); return u?.vendorId || null; }
+  getReadOnly() { const u: any = this.getUser(); return !!u?.readOnly; }
+  isSuperAdmin() { return this.getUserRole() === 'super-admin'; }
   isLoggedIn() {
     const token = this.getToken();
     if (!token) return false;

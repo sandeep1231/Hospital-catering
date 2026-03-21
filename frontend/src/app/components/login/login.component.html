@@ -1,38 +1,79 @@
-<div class="login-hero container py-5 d-flex flex-column align-items-center justify-content-center" style="min-height: 100vh;">
+<div class="login-hero container py-5 d-flex flex-column align-items-center justify-content-center" style="min-height: 100vh; position: relative; z-index: 1;">
   <div class="text-center mb-4">
-  <div class="h3 fw-bold">Urbane Foods</div>
-    <div class="text-muted">Manage patients, diets, and deliveries</div>
+    <div class="d-inline-flex align-items-center justify-content-center mb-3" style="width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.2);backdrop-filter:blur(10px);">
+      <span style="font-size:1.25rem;font-weight:700;color:#fff;letter-spacing:-1px;">DF</span>
+    </div>
+    <div class="h3 fw-bold text-white">Diet<span style="opacity:.7">Flow</span></div>
+    <div style="color: rgba(255,255,255,.7);">Hospital Diet Management Platform</div>
   </div>
 
   <div class="card login-card" style="max-width: 420px; width: 100%;">
     <div class="card-body p-4">
-      <h4 class="mb-3">Sign in</h4>
-      <form (submit)="login($event)">
-        <div class="mb-3">
-          <label class="form-label">Email</label>
-          <input class="form-control" type="email" [(ngModel)]="email" name="email" required autocomplete="username" />
+      <h4 class="mb-1 fw-bold">{{ step === 1 ? 'Welcome back' : 'Select Hospital' }}</h4>
+      <p class="text-muted small mb-3">{{ step === 1 ? 'Sign in to your account' : 'Choose a hospital to continue' }}</p>
+
+      <!-- Vendor badge (step 2) -->
+      <div *ngIf="step === 2 && vendorName" class="d-flex align-items-center gap-2 mb-3 p-2 rounded" style="background: rgba(13,148,136,.08); border: 1px solid rgba(13,148,136,.2);">
+        <i class="bi bi-building-check" style="color: #0d9488; font-size: 1.25rem;"></i>
+        <div>
+          <div class="fw-semibold small" style="color: #0d9488;">{{ vendorName }}</div>
+          <div class="text-muted" style="font-size: .75rem;">Vendor Account</div>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          <div class="input-group">
-            <input class="form-control" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" name="password" required autocomplete="current-password" />
-            <button class="btn btn-outline-secondary" type="button" (click)="showPassword = !showPassword">{{ showPassword ? 'Hide' : 'Show' }}</button>
+      </div>
+
+      <form (submit)="onSubmit($event)">
+        <!-- Step 1: Credentials -->
+        <ng-container *ngIf="step === 1">
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+              <input class="form-control border-start-0" type="email" [(ngModel)]="email" name="email" required autocomplete="username" placeholder="you@example.com" />
+            </div>
           </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Hospital</label>
-          <select class="form-select" [(ngModel)]="hospitalId" name="hospitalId">
-            <option value="">Select hospital</option>
-            <option *ngFor="let h of hospitals" [value]="h._id">{{h.name}}</option>
-          </select>
-        </div>
-        <div *ngIf="error" class="alert alert-danger">{{error}}</div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+              <input class="form-control border-start-0 border-end-0" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" name="password" required autocomplete="current-password" placeholder="Enter password" />
+              <button class="btn btn-outline-secondary border-start-0" type="button" (click)="showPassword = !showPassword">
+                <i [class]="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Step 2: Hospital picker -->
+        <ng-container *ngIf="step === 2">
+          <div class="mb-3">
+            <label class="form-label">Hospital</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0"><i class="bi bi-building text-muted"></i></span>
+              <select class="form-select border-start-0" [(ngModel)]="hospitalId" name="hospitalId" required>
+                <option value="">Select hospital</option>
+                <option *ngFor="let h of hospitals" [value]="h._id" [disabled]="h.inactive">{{ h.name }}{{ h.inactive ? ' (Inactive)' : '' }}</option>
+              </select>
+            </div>
+            <div *ngIf="hospitals.length === 0" class="text-muted small mt-1">
+              <i class="bi bi-info-circle me-1"></i>No hospitals assigned to your vendor yet.
+            </div>
+          </div>
+        </ng-container>
+
+        <div *ngIf="error" class="alert alert-danger py-2 small">{{ error }}</div>
         <div class="d-grid">
-          <button class="btn btn-primary" type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
+          <button class="btn btn-primary btn-lg" type="submit" [disabled]="loading || (step === 2 && hospitals.length === 0)">
+            <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
+            <ng-container *ngIf="step === 1">{{ loading ? 'Verifying…' : 'Continue' }}</ng-container>
+            <ng-container *ngIf="step === 2">{{ loading ? 'Signing in…' : 'Sign in' }}</ng-container>
+          </button>
+        </div>
+        <div *ngIf="step === 2" class="mt-2 text-center">
+          <a href="javascript:void(0)" (click)="goBack()" class="small text-muted"><i class="bi bi-arrow-left me-1"></i>Back</a>
         </div>
       </form>
-      <div class="mt-3 text-center small text-muted">
-        Don't have an account? <a routerLink="/register">Sign up</a>
+      <div class="mt-3 text-center small text-muted" *ngIf="step === 1">
+        Are you a vendor? <a routerLink="/vendor-register" class="fw-semibold" style="color: #0d9488;">Register as vendor</a>
       </div>
     </div>
   </div>

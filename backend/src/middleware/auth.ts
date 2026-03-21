@@ -10,7 +10,7 @@ export default function authMiddleware(req: Request, res: Response, next: NextFu
     }
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
     const payload: any = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    (req as any).user = { id: payload.id, role: payload.role, name: payload.name, hospitalId: payload.hospitalId };
+    (req as any).user = { id: payload.id, role: payload.role, name: payload.name, hospitalId: payload.hospitalId, vendorId: payload.vendorId, readOnly: !!payload.readOnly };
     next();
   } catch (e) {
     return res.status(401).json({ message: 'Unauthorized' });

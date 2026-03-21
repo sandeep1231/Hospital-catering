@@ -7,7 +7,6 @@ import { PatientDetailComponent } from './components/patient-detail/patient-deta
 import { OrdersComponent } from './components/orders/orders.component';
 import { DietPlanEditorComponent } from './components/diet-plan-editor/diet-plan-editor.component';
 import { AuthGuard } from './guards/auth.guard';
-import { RegisterComponent } from './components/register/register.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
 import { AdminInviteComponent } from './components/admin-invite/admin-invite.component';
 import { AdminDietsComponent } from './components/admin-diets/admin-diets.component';
@@ -19,10 +18,19 @@ import { DietSupervisorComponent } from './components/diet-supervisor/diet-super
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { AuditLogViewerComponent } from './components/audit-log-viewer/audit-log-viewer.component';
 import { DietSupervisorGuard } from './guards/diet-supervisor.guard';
+import { VendorRegisterComponent } from './components/vendor-register/vendor-register.component';
+import { SuperAdminGuard } from './guards/super-admin.guard';
+import { SADashboardComponent } from './components/super-admin/dashboard/sa-dashboard.component';
+import { SAVendorsComponent } from './components/super-admin/vendors/sa-vendors.component';
+import { SAVendorDetailComponent } from './components/super-admin/vendor-detail/sa-vendor-detail.component';
+import { SAHospitalsComponent } from './components/super-admin/hospitals/sa-hospitals.component';
+import { SARequestsComponent } from './components/super-admin/requests/sa-requests.component';
+import { VendorHospitalsComponent } from './components/vendor-hospitals/vendor-hospitals.component';
 
 const routes: Routes = [
-  { path: 'register', component: RegisterComponent },
+  { path: 'vendor-register', component: VendorRegisterComponent },
   { path: 'admin/users', component: AdminUsersComponent, canActivate: [AdminGuard] },
+  { path: 'admin/hospitals', component: VendorHospitalsComponent, canActivate: [AdminGuard] },
   { path: 'admin/invite', component: AdminInviteComponent, canActivate: [AdminGuard] },
   { path: 'admin/audit-logs', component: AuditLogViewerComponent, canActivate: [AdminGuard] },
   { path: 'orders/new', component: ManualOrderComponent, canActivate: [AuthGuard] },
@@ -39,6 +47,14 @@ const routes: Routes = [
   
   { path: 'reports', component: ReportsDashboardComponent, canActivate: [AdminGuard] },
   { path: 'diet-supervisor', component: DietSupervisorComponent, canActivate: [DietSupervisorGuard] },
+
+  // Super Admin routes
+  { path: 'super-admin', component: SADashboardComponent, canActivate: [SuperAdminGuard] },
+  { path: 'super-admin/vendors', component: SAVendorsComponent, canActivate: [SuperAdminGuard] },
+  { path: 'super-admin/vendors/:id', component: SAVendorDetailComponent, canActivate: [SuperAdminGuard] },
+  { path: 'super-admin/hospitals', component: SAHospitalsComponent, canActivate: [SuperAdminGuard] },
+  { path: 'super-admin/requests', component: SARequestsComponent, canActivate: [SuperAdminGuard] },
+
   { path: '**', redirectTo: '' }
 ];
 

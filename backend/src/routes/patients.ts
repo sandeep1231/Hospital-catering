@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Patient from '../models/patient';
 import auth from '../middleware/auth';
-import { requireRole } from '../middleware/roles';import { notify } from '../utils/notify';import AuditLog from '../models/auditLog';
+import { requireRole, requireWriteAccess } from '../middleware/roles';import { notify } from '../utils/notify';import AuditLog from '../models/auditLog';
 import DietAssignment from '../models/dietAssignment';
 import { istStartOfDayUTCForDate } from '../utils/time';
 import PatientMovement from '../models/patientMovement';
@@ -10,8 +10,9 @@ const router = Router();
 
 router.get('/', auth, async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
+  const vid = (req as any).user?.vendorId;
   const q = (req.query?.q ? String(req.query.q) : '').trim();
-  const cond: any = hid ? { hospitalId: hid } : {};
+  const cond: any = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
   if (q) {
     const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(safe, 'i');
@@ -164,7 +165,8 @@ router.get('/', auth, async (req: Request, res: Response) => {
 router.get('/meta', auth, async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const base = hid ? { hospitalId: hid } : {};
+    const vid = (req as any).user?.vendorId;
+    const base = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
     const types = await Patient.distinct('roomType', base);
     const numbers = await Patient.distinct('roomNo', base);
     // filter out null/empty values and sort naturally
@@ -185,8 +187,9 @@ router.get('/meta', auth, async (req: Request, res: Response) => {
 router.get('/meta/room-nos', auth, async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
     const roomTypeParam = (req.query?.roomType ? String(req.query.roomType) : '').trim();
-    const base: any = hid ? { hospitalId: hid } : {};
+    const base: any = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
     if (roomTypeParam) {
       base.roomType = new RegExp('^' + roomTypeParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
     }
@@ -207,7 +210,8 @@ router.get('/meta/room-nos', auth, async (req: Request, res: Response) => {
 router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const base: any = hid ? { hospitalId: hid } : {};
+    const vid = (req as any).user?.vendorId;
+    const base: any = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
     const today = istStartOfDayUTCForDate(new Date());
 
     const [totalIn, totalDischarged, totalPatients] = await Promise.all([
@@ -238,7 +242,8 @@ router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
 
 router.get('/:id', auth, async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
-  const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+  const vid = (req as any).user?.vendorId;
+  const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
   if (!p) return res.status(404).json({ message: 'not found' });
   res.json(p);
 });
@@ -247,7 +252,8 @@ router.get('/:id', auth, async (req: Request, res: Response) => {
 router.get('/:id/movements', auth, async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const items = await PatientMovement.find({ patientId: req.params.id, ...(hid ? { hospitalId: hid } : {}) })
+    const vid = (req as any).user?.vendorId;
+    const items = await PatientMovement.find({ patientId: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) })
       .sort({ start: -1 })
       .select('_id roomType roomNo bed start end createdAt updatedAt')
       .lean();
@@ -259,10 +265,11 @@ router.get('/:id/movements', auth, async (req: Request, res: Response) => {
 });
 
 // PUT /api/patients/:id/feedback - update feedback and optionally dietNote (admin, diet-supervisor, dietician)
-router.put('/:id/feedback', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
+router.put('/:id/feedback', auth, requireRole('admin','diet-supervisor','dietician'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+    const vid = (req as any).user?.vendorId;
+    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
     if (!p) return res.status(404).json({ message: 'not found' });
     const feedback = req.body && typeof req.body.feedback === 'string' ? String(req.body.feedback) : '';
     const dietNote = req.body && typeof req.body.dietNote === 'string' ? String(req.body.dietNote) : undefined;
@@ -277,7 +284,7 @@ router.put('/:id/feedback', auth, requireRole('admin','diet-supervisor','dietici
       try {
         const today = istStartOfDayUTCForDate(new Date());
         await DietAssignment.updateMany(
-          { patientId: p._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) },
+          { patientId: p._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) },
           { $set: { note: dietNote } }
         );
       } catch (e) { console.error('sync pending assignment note failed', e); }
@@ -381,12 +388,13 @@ function validatePatientInput(body: any) {
 }
 
 // POST /api/patients (create) - admin, diet-supervisor
-router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
+router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   const { valid, errors, cleaned } = validatePatientInput(req.body);
   if (!valid) return res.status(400).json({ errors });
   try {
     const hid = (req as any).user?.hospitalId;
-    const p = new Patient({ ...cleaned, hospitalId: hid });
+    const vid = (req as any).user?.vendorId;
+    const p = new Patient({ ...cleaned, hospitalId: hid, vendorId: vid });
     await p.save();
     // audit
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'create', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
@@ -408,6 +416,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
       await PatientMovement.create({
         patientId: p._id,
         hospitalId: hid || null,
+        vendorId: vid || null,
         roomType: cleaned.roomType || null,
         roomNo: cleaned.roomNo || null,
         bed: cleaned.bed || null,
@@ -422,7 +431,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
       let priceForAssign = 0;
       try {
         const DietType = require('../models/dietType').default;
-        const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}) }).lean();
+        const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
         if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
       } catch (e) { /* ignore */ }
 
@@ -430,6 +439,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
       const assign = {
         patientId: p._id,
         hospitalId: hid,
+        vendorId: vid,
         date: day,
         diet: cleaned.diet,
         note: cleaned.dietNote || '',
@@ -451,13 +461,14 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), async (req: Reque
 });
 
 // PUT /api/patients/:id (update) - admin, diet-supervisor only
-router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
+router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   const { valid, errors, cleaned } = validatePatientInput(req.body);
   if (!valid) return res.status(400).json({ errors });
 
   try {
     const hid = (req as any).user?.hospitalId;
-    const existing = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+    const vid = (req as any).user?.vendorId;
+    const existing = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
     if (!existing) return res.status(404).json({ message: 'not found' });
 
     const role = (req as any).user?.role;
@@ -474,13 +485,13 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
       if (cleaned.diet && cleaned.diet !== existing.diet) {
         const DietAssignment = require('../models/dietAssignment').default;
         const today = istStartOfDayUTCForDate(new Date());
-        const pendingToday = await DietAssignment.findOne({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) });
+        const pendingToday = await DietAssignment.findOne({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
         if (pendingToday) {
           // resolve price for the updated diet
           let priceForAssign = 0;
           try {
             const DietType = require('../models/dietType').default;
-            const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}) }).lean();
+            const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
             if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
           } catch (e) {}
           pendingToday.diet = cleaned.diet;
@@ -499,14 +510,16 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
         (cleaned.roomNo !== undefined && String(cleaned.roomNo || '') !== String(existing.roomNo || '')) ||
         (cleaned.bed !== undefined && String(cleaned.bed || '') !== String(existing.bed || ''));
       const hid = (req as any).user?.hospitalId;
+      const vid = (req as any).user?.vendorId;
       if (roomChanged) {
         const now = new Date();
         // Close existing open movement, if any
-        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}) }, { $set: { end: now } });
+        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }, { $set: { end: now } });
         // Create a new movement from now
         await PatientMovement.create({
           patientId: existing._id,
           hospitalId: hid || null,
+          vendorId: vid || null,
           roomType: cleaned.roomType !== undefined ? cleaned.roomType : existing.roomType || null,
           roomNo: cleaned.roomNo !== undefined ? cleaned.roomNo : existing.roomNo || null,
           bed: cleaned.bed !== undefined ? cleaned.bed : existing.bed || null,
@@ -517,7 +530,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
         // Simple rule: on room change, ensure exactly one pending assignment for today reflecting current diet
         // 1) Remove any existing pending assignment for today
         const today = istStartOfDayUTCForDate(new Date());
-        await DietAssignment.deleteMany({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}) });
+        await DietAssignment.deleteMany({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
         // 2) Create a fresh pending assignment for today with the current diet (if available) if not discharged
         const isDischarged = (cleaned.status || updated?.status) === 'discharged';
         if (!isDischarged) {
@@ -526,11 +539,11 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
             let priceForAssign = 0;
             try {
               const DietType = require('../models/dietType').default;
-              const dt = await DietType.findOne({ name: currentDiet, ...(hid ? { hospitalId: hid } : {}) }).lean();
+              const dt = await DietType.findOne({ name: currentDiet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
               if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
             } catch {}
             const note = (cleaned.dietNote !== undefined ? cleaned.dietNote : (updated as any)?.dietNote) || '';
-            const created = await DietAssignment.create({ patientId: existing._id, hospitalId: hid, date: today, diet: currentDiet, note, status: 'pending', price: priceForAssign });
+            const created = await DietAssignment.create({ patientId: existing._id, hospitalId: hid, vendorId: vid, date: today, diet: currentDiet, note, status: 'pending', price: priceForAssign });
             try { await AuditLog.create({ entity: 'DietAssignment', entityId: created._id, action: 'create', userId: (req as any).user?.id || null, details: { reason: 'room-change', date: today, diet: currentDiet } }); } catch {}
           }
         }
@@ -538,7 +551,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
       // Close open movement when patient is discharged (use dischargeDate if provided)
       if (cleaned.status === 'discharged' || updated?.status === 'discharged') {
         const when = cleaned.dischargeDate ? new Date(cleaned.dischargeDate) : new Date();
-        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}) }, { $set: { end: when } });
+        await PatientMovement.updateMany({ patientId: existing._id, end: null, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }, { $set: { end: when } });
       }
     } catch (e) { console.error('movement tracking error', e); }
     res.json(updated);
@@ -552,13 +565,14 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), async (req: Req
 export default router;
 
 // DELETE /api/patients/:id (admin only)
-router.delete('/:id', auth, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', auth, requireRole('admin'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+    const vid = (req as any).user?.vendorId;
+    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
     if (!p) return res.status(404).json({ message: 'not found' });
-    // delete related diet assignments (hospital scoped)
-    await DietAssignment.deleteMany({ patientId: p._id, ...(hid ? { hospitalId: hid } : {}) });
+    // delete related diet assignments (hospital+vendor scoped)
+    await DietAssignment.deleteMany({ patientId: p._id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
     await Patient.deleteOne({ _id: p._id });
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'delete', userId: (req as any).user?.id || null, details: { name: p.name } }); } catch {}
     res.json({});
@@ -569,10 +583,11 @@ router.delete('/:id', auth, requireRole('admin'), async (req: Request, res: Resp
 });
 
 // POST /api/patients/:id/discharge - Quick discharge action (admin, diet-supervisor)
-router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
+router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
     const hid = (req as any).user?.hospitalId;
-    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });
+    const vid = (req as any).user?.vendorId;
+    const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
     if (!p) return res.status(404).json({ message: 'not found' });
     if (p.status === 'discharged') return res.status(400).json({ message: 'patient already discharged' });
 
@@ -587,14 +602,14 @@ router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), asyn
 
     // Close open movements
     await PatientMovement.updateMany(
-      { patientId: p._id, end: null, ...(hid ? { hospitalId: hid } : {}) },
+      { patientId: p._id, end: null, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) },
       { $set: { end: now } }
     );
 
     // Cancel any pending diet assignments from today forward
     const today = istStartOfDayUTCForDate(now);
     await DietAssignment.updateMany(
-      { patientId: p._id, date: { $gte: today }, status: 'pending', ...(hid ? { hospitalId: hid } : {}) },
+      { patientId: p._id, date: { $gte: today }, status: 'pending', ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) },
       { $set: { status: 'cancelled' } }
     );
 

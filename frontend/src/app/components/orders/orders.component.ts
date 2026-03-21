@@ -9,7 +9,7 @@ import { ConfirmDeliverModalComponent } from './confirm-deliver-modal.component'
   <div class="d-flex mb-3">
     <h4 class="me-auto">Today's Orders</h4>
     <div class="d-flex gap-2">
-      <a *ngIf="canCreate" class="btn btn-sm btn-success" routerLink="/orders/new">New Order</a>
+      <a *ngIf="canCreate && !readOnly" class="btn btn-sm btn-success" routerLink="/orders/new">New Order</a>
       <button class="btn btn-sm btn-primary" (click)="refresh()">Refresh</button>
     </div>
   </div>
@@ -39,9 +39,9 @@ import { ConfirmDeliverModalComponent } from './confirm-deliver-modal.component'
               </div>
               <div class="d-flex align-items-center gap-2 ms-auto">
                 <span class="text-nowrap">x {{it.quantity}}</span>
-                <button *ngIf="canKitchen" class="btn btn-sm btn-outline-primary" (click)="setKitchen(o,'preparing')">Prepare</button>
-                <button *ngIf="canKitchen" class="btn btn-sm btn-outline-success" (click)="setKitchen(o,'ready')">Ready</button>
-                <button *ngIf="canKitchen" class="btn btn-sm btn-outline-danger" (click)="setKitchen(o,'cancelled')">Cancel</button>
+                <button *ngIf="canKitchen && !readOnly" class="btn btn-sm btn-outline-primary" (click)="setKitchen(o,'preparing')">Prepare</button>
+                <button *ngIf="canKitchen && !readOnly" class="btn btn-sm btn-outline-success" (click)="setKitchen(o,'ready')">Ready</button>
+                <button *ngIf="canKitchen && !readOnly" class="btn btn-sm btn-outline-danger" (click)="setKitchen(o,'cancelled')">Cancel</button>
               </div>
             </div>
           </li>
@@ -49,7 +49,7 @@ import { ConfirmDeliverModalComponent } from './confirm-deliver-modal.component'
       </ng-container>
 
       <div class="mt-3 d-flex">
-        <button *ngIf="canDeliver" class="btn btn-sm btn-secondary ms-auto" (click)="confirmDeliver(o)">Mark Delivered</button>
+        <button *ngIf="canDeliver && !readOnly" class="btn btn-sm btn-secondary ms-auto" (click)="confirmDeliver(o)">Mark Delivered</button>
       </div>
     </div>
   </div>
@@ -62,7 +62,8 @@ export class OrdersComponent implements OnInit {
   @ViewChild(ConfirmDeliverModalComponent) confirmModal!: ConfirmDeliverModalComponent;
 
   constructor(private api: ApiService, private toast: ToastService) {}
-  ngOnInit() { this.refresh(); }
+  readOnly = false;
+  ngOnInit() { this.readOnly = this.api.getReadOnly(); this.refresh(); }
   refresh() { this.api.get('/orders').subscribe((res: any) => { this.orders = res; this.toast.info('Loaded orders'); }, err => { this.toast.error('Failed to load orders'); console.error(err); }); }
 
   setKitchen(o: any, status: string) {

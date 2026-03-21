@@ -7,8 +7,9 @@ export class AdminDietsComponent implements OnInit {
   diets: any[] = [];
   loading = false;
   editing: any = null;
+  readOnly = false;
   constructor(private api: ApiService, private toast: ToastService) {}
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.readOnly = this.api.getReadOnly(); this.load(); }
   load() { this.loading = true; this.api.get('/diets').subscribe((res:any) => { this.diets = res; this.loading = false; }, err => { console.error(err); this.toast.error(err?.error?.message || 'Failed to load diets'); this.loading = false; }); }
   newDiet() { this.editing = { name: '', defaultPrice: 0, active: true }; }
   edit(d:any) { this.editing = { ...d }; }

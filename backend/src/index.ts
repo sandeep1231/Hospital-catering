@@ -16,6 +16,9 @@ import menuItemRoutes from './routes/menuItems';
 import dietPlanRoutes from './routes/dietPlans';
 import auditLogRoutes from './routes/auditLogs';
 import notificationRoutes from './routes/notifications';
+import vendorRoutes from './routes/vendors';
+import vendorHospitalRoutes from './routes/vendorHospitals';
+import superAdminRoutes from './routes/superAdmin';
 import Hospital from './models/hospital';
 import { fixIndexes } from './utils/fixIndexes';
 
@@ -42,6 +45,9 @@ app.use('/api/menu-items', menuItemRoutes);
 app.use('/api/diet-plans', dietPlanRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/vendors', vendorRoutes);
+app.use('/api/vendor-hospitals', vendorHospitalRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 
 const PORT = process.env.PORT || 4000;
 

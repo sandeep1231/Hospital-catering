@@ -15,8 +15,10 @@ export class ManualOrderComponent implements OnInit {
   menu: any[] = [];
 
   constructor(private api: ApiService, private toast: ToastService, private router: Router) {}
+  readOnly = false;
 
   ngOnInit() {
+    this.readOnly = this.api.getReadOnly();
     this.api.get('/patients').subscribe((res:any)=> this.patients = res || []);
     this.api.get('/menu').subscribe((res:any)=> this.menu = res || []);
     this.addItem();

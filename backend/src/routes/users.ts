@@ -9,8 +9,9 @@ const router = Router();
 // List users (admin only)
 router.get('/', auth, requireRole('admin'), async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
+  const vid = (req as any).user?.vendorId;
   const q = (req.query.q as string || '').trim();
-  const cond: any = { ...(hid ? { hospitalId: hid } : {}) };
+  const cond: any = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
   if (q) cond.$or = [ { name: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } } ];
   const users = await User.find(cond).select({ passwordHash: 0 }).sort({ createdAt: -1 }).lean();
   res.json(users);
@@ -26,9 +27,10 @@ router.post('/', auth, requireRole('admin'), async (req: Request, res: Response)
   const existing = await User.findOne({ email });
   if (existing) return res.status(400).json({ message: 'email exists' });
   const hash = await bcrypt.hash(password, 10);
-  const u = new User({ name, email, passwordHash: hash, role: roleToSet, hospitalId: hid });
+  const vid = (req as any).user?.vendorId;
+  const u = new User({ name, email, passwordHash: hash, role: roleToSet, hospitalId: hid, vendorId: vid });
   await u.save();
-  res.status(201).json({ id: u._id, name: u.name, email: u.email, role: u.role, hospitalId: u.hospitalId });
+  res.status(201).json({ id: u._id, name: u.name, email: u.email, role: u.role, hospitalId: u.hospitalId, vendorId: u.vendorId });
 });
 
 // Update role or name (admin)

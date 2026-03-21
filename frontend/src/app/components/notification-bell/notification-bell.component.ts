@@ -63,7 +63,8 @@ import { NotificationService, AppNotification } from '../../services/notificatio
   `,
   styles: [`
     .notification-item:hover { background-color: #f0f4ff !important; }
-    .notification-panel { border-radius: 8px; }
+    .notification-panel { border-radius: 12px; overflow: hidden; animation: fadeInUp .2s ease both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   `]
 })
 export class NotificationBellComponent implements OnInit, OnDestroy {

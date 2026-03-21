@@ -26,11 +26,13 @@ export class PatientsListComponent implements OnInit {
   roomNoFilter: string = '';
   roomTypes: string[] = [];
   roomNos: string[] = [];
+  readOnly = false;
 
   constructor(private api: ApiService, private router: Router, private toast: ToastService) { }
 
   ngOnInit(): void {
     this.role = this.api.getUserRole();
+    this.readOnly = this.api.getReadOnly();
     this.fetchMeta();
     this.load();
   }

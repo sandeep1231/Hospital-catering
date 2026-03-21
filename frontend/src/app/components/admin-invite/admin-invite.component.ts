@@ -11,8 +11,8 @@ export class AdminInviteComponent {
   name = '';
   email = '';
   password = '';
-  role = 'user';
-  roles = ['admin','dietician','vendor','kitchen','delivery','user'];
+  role = 'dietician';
+  roles = ['admin','diet-supervisor','dietician'];
   loading = false;
 
   constructor(private api: ApiService, private toast: ToastService) {}
@@ -25,7 +25,7 @@ export class AdminInviteComponent {
       this.loading = false;
       this.toast.success('User created');
       this.name = this.email = this.password = '';
-      this.role = 'user';
+      this.role = 'dietician';
     }, err => {
       this.loading = false;
       this.toast.error(err?.error?.message || 'Failed');

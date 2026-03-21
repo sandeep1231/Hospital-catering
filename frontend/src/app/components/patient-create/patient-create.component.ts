@@ -28,8 +28,9 @@ export class PatientCreateComponent {
   dischargeAmpm: 'AM' | 'PM' = 'AM';
 
   constructor(private api: ApiService, private toast: ToastService, private router: Router) {}
+  readOnly = false;
 
-  ngOnInit() { this.loadDiets(); }
+  ngOnInit() { this.readOnly = this.api.getReadOnly(); this.loadDiets(); }
 
   loadDiets() {
     this.dietsLoading = true;

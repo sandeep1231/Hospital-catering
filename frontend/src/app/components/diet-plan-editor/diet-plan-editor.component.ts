@@ -7,7 +7,7 @@ import { ToastService } from '../../services/toast.service';
   template: `
   <div class="d-flex mb-3">
     <h4 class="me-auto">Diet Plan Editor</h4>
-    <button class="btn btn-sm btn-outline-secondary" (click)="reset()">New</button>
+    <button class="btn btn-sm btn-outline-secondary" (click)="reset()" *ngIf="!readOnly">New</button>
   </div>
 
   <div class="card p-3">
@@ -81,19 +81,19 @@ import { ToastService } from '../../services/toast.service';
                 </div>
               </div>
               <div class="col-12 col-md-2 text-end">
-                <button type="button" class="btn btn-danger btn-sm" (click)="removeMeal(idx)">Remove</button>
+                <button type="button" class="btn btn-danger btn-sm" (click)="removeMeal(idx)" *ngIf="!readOnly">Remove</button>
               </div>
             </div>
           </div>
 
           <div class="mt-2">
-            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addMeal()">+ Add meal slot</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addMeal()" *ngIf="!readOnly">+ Add meal slot</button>
           </div>
         </div>
 
         <div class="col-12 text-end">
           <button class="btn btn-secondary me-2" type="button" (click)="reset()">Reset</button>
-          <button class="btn btn-primary" type="submit">Save Plan</button>
+          <button class="btn btn-primary" type="submit" [disabled]="readOnly">Save Plan</button>
         </div>
       </div>
     </form>
@@ -125,8 +125,10 @@ export class DietPlanEditorComponent implements OnInit {
   };
 
   constructor(private api: ApiService, private toast: ToastService) {}
+  readOnly = false;
 
   ngOnInit() {
+    this.readOnly = this.api.getReadOnly();
     this.loadPatients();
     this.loadMenu();
   }

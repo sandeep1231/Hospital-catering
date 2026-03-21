@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IPatientMovement extends Document {
   patientId: mongoose.Types.ObjectId;
   hospitalId?: mongoose.Types.ObjectId | null;
+  vendorId?: mongoose.Types.ObjectId | null;
   roomType?: string | null;
   roomNo?: string | null;
   bed?: string | null;
@@ -13,6 +14,7 @@ export interface IPatientMovement extends Document {
 const PatientMovementSchema: Schema = new Schema({
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', index: true, required: true },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital', index: true },
+  vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
   roomType: { type: String },
   roomNo: { type: String },
   bed: { type: String },

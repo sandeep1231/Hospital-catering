@@ -3,9 +3,9 @@
     <h4 class="mb-0">Diet Supervisor</h4>
     <div class="d-flex flex-column align-items-end">
       <div class="d-flex gap-2">
-  <button class="btn btn-sm btn-primary" (click)="generateToday()" [disabled]="loading">Generate today's list</button>
+  <button class="btn btn-sm btn-primary" (click)="generateToday()" [disabled]="loading" *ngIf="!readOnly">Generate today's list</button>
   <button class="btn btn-sm btn-outline-primary" (click)="openTotals()" [disabled]="loading || !assignments.length">Diet totals ({{date | date:'dd-MM-yyyy':'Asia/Kolkata'}})</button>
-        <button class="btn btn-sm btn-outline-success" (click)="bulkDeliver()" [disabled]="bulkDelivering || selectedPendingCount === 0">
+        <button class="btn btn-sm btn-outline-success" (click)="bulkDeliver()" [disabled]="bulkDelivering || selectedPendingCount === 0" *ngIf="!readOnly">
           <span class="spinner-border spinner-border-sm me-1" *ngIf="bulkDelivering" role="status" aria-hidden="true"></span>
           Deliver Selected ({{ selectedPendingCount }})
         </button>
@@ -63,7 +63,7 @@
           <table class="table table-sm align-middle table-sticky mb-0">
             <thead>
               <tr>
-                <th class="d-print-none" style="width: 36px;"><input type="checkbox" [checked]="allPendingSelected" (change)="toggleSelectAll()" title="Select all pending" /></th>
+                <th class="d-print-none" style="width: 36px;" *ngIf="!readOnly"><input type="checkbox" [checked]="allPendingSelected" (change)="toggleSelectAll()" title="Select all pending" /></th>
                 <th>Date</th>
                 <th>Patient</th>
                 <th>Mobile</th>
@@ -92,7 +92,7 @@
               <!-- Real rows -->
               <ng-template #assignRows>
               <tr *ngFor="let a of paged()">
-                <td class="d-print-none"><input type="checkbox" *ngIf="a.status==='pending'" [checked]="isSelected(a)" (change)="toggleSelect(a)" /></td>
+                <td class="d-print-none" *ngIf="!readOnly"><input type="checkbox" *ngIf="a.status==='pending'" [checked]="isSelected(a)" (change)="toggleSelect(a)" /></td>
                 <td>{{a.date | date:'dd-MM-yyyy':'Asia/Kolkata'}}</td>
                 <td>{{a.patientName}}</td>
                 <td>{{a.phone || '—'}}</td>
@@ -107,7 +107,7 @@
                       'text-success': a.status==='delivered',
                       'text-danger': a.status==='cancelled'
                     }">{{a.status}}</div>
-                    <button class="btn btn-sm btn-outline-success" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
+                    <button class="btn btn-sm btn-outline-success" *ngIf="a.status==='pending' && !readOnly" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
                       <span class="spinner-border spinner-border-sm me-1" *ngIf="delivering[a._id || a.id]" role="status" aria-hidden="true"></span>
                       Deliver
                     </button>
@@ -171,7 +171,7 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start">
               <div class="d-flex align-items-start gap-2">
-              <input type="checkbox" class="mt-1 d-print-none" *ngIf="a.status==='pending'" [checked]="isSelected(a)" (change)="toggleSelect(a)" />
+              <input type="checkbox" class="mt-1 d-print-none" *ngIf="a.status==='pending' && !readOnly" [checked]="isSelected(a)" (change)="toggleSelect(a)" />
               <div>
                 <div class="small text-muted">Date: {{a.date | date:'dd-MM-yyyy':'Asia/Kolkata'}}</div>
                 <div class="fw-semibold">{{a.patientName}}</div>
@@ -185,7 +185,7 @@
                   'text-success': a.status==='delivered',
                   'text-danger': a.status==='cancelled'
                 }" class="fw-semibold text-capitalize">{{a.status}}</div>
-                <button class="btn btn-sm btn-outline-success mt-1" *ngIf="a.status==='pending'" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
+                <button class="btn btn-sm btn-outline-success mt-1" *ngIf="a.status==='pending' && !readOnly" (click)="markDelivered(a)" [disabled]="delivering[a._id || a.id]">
                   <span class="spinner-border spinner-border-sm me-1" *ngIf="delivering[a._id || a.id]" role="status" aria-hidden="true"></span>
                   Deliver
                 </button>

@@ -19,6 +19,7 @@ export interface IPatient extends Document {
   allergies?: string[];
   notes?: string;
   hospitalId?: mongoose.Types.ObjectId;
+  vendorId?: mongoose.Types.ObjectId;
   code?: string; // optional human-friendly identifier (MRN/bed code)
   dietNote?: string; // note associated with selected diet
   dischargeDate?: Date;
@@ -44,6 +45,7 @@ const PatientSchema: Schema = new Schema({
   allergies: [{ type: String }],
   notes: { type: String },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
+  vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
   code: { type: String },
   dietNote: { type: String },
   dischargeDate: { type: Date },
@@ -54,7 +56,7 @@ const PatientSchema: Schema = new Schema({
 // Use partialFilterExpression instead of sparse to avoid treating null as a value
 // and to ensure uniqueness is enforced only when `code` is present.
 PatientSchema.index(
-  { hospitalId: 1, code: 1 },
+  { hospitalId: 1, vendorId: 1, code: 1 },
   { unique: true, partialFilterExpression: { code: { $type: 'string' } } }
 );
 

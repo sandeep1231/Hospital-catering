@@ -18,6 +18,7 @@ export interface IOrder extends Document {
   notes?: string;
   sourcePlanId?: mongoose.Types.ObjectId;
   hospitalId?: mongoose.Types.ObjectId;
+  vendorId?: mongoose.Types.ObjectId;
 }
 
 const OrderItemSchema: Schema = new Schema({
@@ -37,10 +38,11 @@ const OrderSchema: Schema = new Schema({
   assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
   notes: { type: String },
   sourcePlanId: { type: Schema.Types.ObjectId, ref: 'DietPlan' },
-  hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' }
+  hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
+  vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' }
 }, { timestamps: true });
 
 // indexes
-OrderSchema.index({ date: 1, hospitalId: 1 });
+OrderSchema.index({ date: 1, hospitalId: 1, vendorId: 1 });
 
 export default mongoose.model<IOrder>('Order', OrderSchema);

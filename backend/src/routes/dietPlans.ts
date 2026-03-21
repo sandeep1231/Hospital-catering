@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import DietPlan from '../models/dietPlan';
 import auth from '../middleware/auth';
-import { requireRole } from '../middleware/roles';
+import { requireRole, requireWriteAccess } from '../middleware/roles';
 import Order from '../models/order';
 import MenuItem from '../models/menuItem';
 import { istStartOfDayUTCForDate } from '../utils/time';
@@ -10,13 +10,15 @@ const router = Router();
 
 router.get('/', auth, async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
-  const plans = await DietPlan.find(hid ? { hospitalId: hid } : {}).limit(100);
+  const vid = (req as any).user?.vendorId;
+  const plans = await DietPlan.find({ ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).limit(100);
   res.json(plans);
 });
 
-router.post('/', auth, requireRole('dietician', 'admin'), async (req: Request, res: Response) => {
+router.post('/', auth, requireRole('dietician', 'admin'), requireWriteAccess(), async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
-  const p = new DietPlan({ ...req.body, hospitalId: hid });
+  const vid = (req as any).user?.vendorId;
+  const p = new DietPlan({ ...req.body, hospitalId: hid, vendorId: vid });
   await p.save();
 
   let createdOrder = null;
@@ -38,7 +40,7 @@ router.post('/', auth, requireRole('dietician', 'admin'), async (req: Request, r
         }
       }
       if (items.length > 0) {
-        createdOrder = await Order.create({ date: dateOnly, items, sourcePlanId: p._id, notes: 'Created from diet plan', hospitalId: hid });
+        createdOrder = await Order.create({ date: dateOnly, items, sourcePlanId: p._id, notes: 'Created from diet plan', hospitalId: hid, vendorId: vid });
       }
     }
   } catch (e) { console.error('Failed to create order from diet plan', e); }
