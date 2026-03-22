@@ -5,14 +5,14 @@ import { Router } from '@angular/router';
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   // Dynamically choose API base:
-  // - If served from GitHub Pages, call the Render backend
-  // - Otherwise (e.g., local dev), call localhost
+  // - Production (dietflow.in, onrender.com): use hosted backend
+  // - Otherwise (local dev): call localhost
   base = (() => {
-    const renderBase = 'https://hospital-catering-2.onrender.com/api';
+    const prodBase = 'https://api.dietflow.in/api';
     const localBase = 'http://localhost:4000/api';
     try {
       const host = (typeof window !== 'undefined' && window.location && window.location.host) ? window.location.host : '';
-      if (host.includes('github.io') || host.includes('onrender.com') || host.includes('switchinsolutions.com')) return renderBase;
+      if (host.includes('dietflow.in') || host.includes('github.io') || host.includes('onrender.com') || host.includes('switchinsolutions.com')) return prodBase;
       return localBase;
     } catch {
       return localBase;

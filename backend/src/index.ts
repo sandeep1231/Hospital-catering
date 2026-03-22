@@ -29,8 +29,22 @@ process.env.TZ = 'Asia/Kolkata';
 
 const app = express();
 app.use(compression());
-app.use(cors({ origin: true, credentials: true, maxAge: 86400 }));
-// app.options('*', cors());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+// Always allow local dev origins
+['http://localhost:4200', 'http://localhost:4000'].forEach(o => {
+  if (!allowedOrigins.includes(o)) allowedOrigins.push(o);
+});
+app.use(cors({
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    else callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  maxAge: 86400,
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
