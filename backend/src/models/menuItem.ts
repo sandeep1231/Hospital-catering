@@ -11,15 +11,15 @@ export interface IMenuItem extends Document {
   price?: number;
 }
 
-const MenuItemSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  description: { type: String },
-  dietTags: [{ type: String }],
-  calories: { type: Number },
-  allergens: [{ type: String }],
+export const MenuItemSchema: Schema = new Schema({
+  name: { type: String, required: true, maxlength: 200 },
+  description: { type: String, maxlength: 1000 },
+  dietTags: [{ type: String, maxlength: 100 }],
+  calories: { type: Number, min: 0 },
+  allergens: [{ type: String, maxlength: 100 }],
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
-  price: { type: Number, default: 0 }
+  price: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 export default mongoose.model<IMenuItem>('MenuItem', MenuItemSchema);

@@ -4,6 +4,8 @@ import VendorHospital from '../models/vendorHospital';
 import User from '../models/user';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
+import { validate } from '../middleware/validate';
+import { createHospitalSchema, updateHospitalSchema } from '../schemas/hospital.schemas';
 
 const router = Router();
 
@@ -33,9 +35,9 @@ router.post(
   '/',
   auth,
   requireRole('admin'),
+  validate({ body: createHospitalSchema }),
   async (req: Request, res: Response) => {
-    const { name, address } = req.body || {};
-    if (!name) return res.status(400).json({ message: 'name is required' });
+    const { name, address } = req.body;
     const existing = await Hospital.findOne({ name });
     if (existing) return res.status(400).json({ message: 'hospital exists' });
     const h = await Hospital.create({ name, address });
@@ -48,8 +50,9 @@ router.put(
   '/:id',
   auth,
   requireRole('admin'),
+  validate({ body: updateHospitalSchema }),
   async (req: Request, res: Response) => {
-    const { name, address } = req.body || {};
+    const { name, address } = req.body;
     const updated = await Hospital.findByIdAndUpdate(
       req.params.id,
       { name, address },

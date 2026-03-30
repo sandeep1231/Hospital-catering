@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type DietName = 'Normal Diet' | 'Liquid Diet' | 'Protein Diet' | 'Other';
+export type DietName = string;
 export type DietStatus = 'pending' | 'delivered' | 'cancelled';
 
 export interface IDietAssignment extends Document {
@@ -18,19 +18,19 @@ export interface IDietAssignment extends Document {
   price?: number; // captured at assignment for billing
 }
 
-const DietAssignmentSchema = new Schema<IDietAssignment>({
+export const DietAssignmentSchema = new Schema<IDietAssignment>({
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
   date: { type: Date, required: true },
   fromTime: { type: String },
   toTime: { type: String },
-  diet: { type: String, enum: ['Normal Diet','Liquid Diet','Protein Diet','Other'], required: true },
-  note: { type: String },
+  diet: { type: String, required: true, maxlength: 200 },
+  note: { type: String, maxlength: 1000 },
   status: { type: String, enum: ['pending','delivered','cancelled'], default: 'pending' },
   deliveredBy: { type: Schema.Types.ObjectId, ref: 'User' },
   deliveredAt: { type: Date },
-  price: { type: Number, default: 0 }
+  price: { type: Number, default: 0, min: 0 }
 }, { timestamps: true });
 
 DietAssignmentSchema.index({ hospitalId: 1, vendorId: 1, patientId: 1, date: 1 });

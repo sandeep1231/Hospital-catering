@@ -1,14 +1,19 @@
 import { Router, Request, Response } from 'express';
-import Patient from '../models/patient';
 import auth from '../middleware/auth';
-import { requireRole, requireWriteAccess } from '../middleware/roles';import { notify } from '../utils/notify';import AuditLog from '../models/auditLog';
-import DietAssignment from '../models/dietAssignment';
+import { requireRole, requireWriteAccess } from '../middleware/roles';
+import { notifyTenant } from '../utils/notify';
 import { istStartOfDayUTCForDate } from '../utils/time';
-import PatientMovement from '../models/patientMovement';
+import { TenantModels } from '../utils/tenantModels';
 
 const router = Router();
 
+/** Helper to get tenant models from request — throws if missing */
+function tm(req: Request): TenantModels {
+  return req.tenantModels!;
+}
+
 router.get('/', auth, async (req: Request, res: Response) => {
+  const { Patient, DietAssignment, PatientMovement } = tm(req);
   const hid = (req as any).user?.hospitalId;
   const vid = (req as any).user?.vendorId;
   const q = (req.query?.q ? String(req.query.q) : '').trim();
@@ -164,6 +169,7 @@ router.get('/', auth, async (req: Request, res: Response) => {
 // GET /api/patients/meta - returns distinct room types and room numbers
 router.get('/meta', auth, async (req: Request, res: Response) => {
   try {
+    const { Patient } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const base = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
@@ -186,6 +192,7 @@ router.get('/meta', auth, async (req: Request, res: Response) => {
 // GET /api/patients/meta/room-nos?roomType=TYPE - distinct room numbers for a specific room type
 router.get('/meta/room-nos', auth, async (req: Request, res: Response) => {
   try {
+    const { Patient } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const roomTypeParam = (req.query?.roomType ? String(req.query.roomType) : '').trim();
@@ -209,6 +216,7 @@ router.get('/meta/room-nos', auth, async (req: Request, res: Response) => {
 // GET /api/patients/dashboard/stats - KPIs for the dashboard (auth)
 router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const base: any = { ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) };
@@ -241,6 +249,7 @@ router.get('/dashboard/stats', auth, async (req: Request, res: Response) => {
 });
 
 router.get('/:id', auth, async (req: Request, res: Response) => {
+  const { Patient } = tm(req);
   const hid = (req as any).user?.hospitalId;
   const vid = (req as any).user?.vendorId;
   const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
@@ -251,6 +260,7 @@ router.get('/:id', auth, async (req: Request, res: Response) => {
 // GET /api/patients/:id/movements - movement history for a patient
 router.get('/:id/movements', auth, async (req: Request, res: Response) => {
   try {
+    const { PatientMovement } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const items = await PatientMovement.find({ patientId: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) })
@@ -267,6 +277,7 @@ router.get('/:id/movements', auth, async (req: Request, res: Response) => {
 // PUT /api/patients/:id/feedback - update feedback and optionally dietNote (admin, diet-supervisor, dietician)
 router.put('/:id/feedback', auth, requireRole('admin','diet-supervisor','dietician'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment, AuditLog } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
@@ -342,9 +353,8 @@ function validatePatientInput(body: any) {
   }
   if (body.roomNo !== undefined) cleaned.roomNo = String(body.roomNo).trim();
   if (body.diet) {
-    const allowedDiets = ['Normal Diet','Liquid Diet','Protein Diet','Other'];
-    const d = String(body.diet);
-    if (!allowedDiets.includes(d)) errors.push({ field: 'diet', message: 'diet is invalid' }); else cleaned.diet = d;
+    const d = String(body.diet).trim();
+    if (d.length === 0 || d.length > 200) errors.push({ field: 'diet', message: 'diet is invalid' }); else cleaned.diet = d;
   }
   if (body.dietNote !== undefined) cleaned.dietNote = String(body.dietNote || '');
 
@@ -392,6 +402,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
   const { valid, errors, cleaned } = validatePatientInput(req.body);
   if (!valid) return res.status(400).json({ errors });
   try {
+    const { Patient, DietAssignment, DietType, AuditLog, PatientMovement } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const p = new Patient({ ...cleaned, hospitalId: hid, vendorId: vid });
@@ -400,7 +411,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'create', userId: (req as any).user?.id || null, details: cleaned }); } catch (e) { console.error('audit error', e); }
 
     // notification
-    notify({
+    notifyTenant(req, {
       hospitalId: hid,
       type: 'patient_admitted',
       title: 'New Patient Admitted',
@@ -427,10 +438,8 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
 
     // auto-create first diet assignment if diet is set
     if (cleaned.diet) {
-      const DietAssignment = require('../models/dietAssignment').default;
       let priceForAssign = 0;
       try {
-        const DietType = require('../models/dietType').default;
         const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
         if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
       } catch (e) { /* ignore */ }
@@ -466,6 +475,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
   if (!valid) return res.status(400).json({ errors });
 
   try {
+    const { Patient, DietAssignment, DietType, AuditLog, PatientMovement } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const existing = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
@@ -483,14 +493,12 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
     // If diet changed via patient detail, only update today's PENDING assignment (if any). Do NOT edit delivered.
     try {
       if (cleaned.diet && cleaned.diet !== existing.diet) {
-        const DietAssignment = require('../models/dietAssignment').default;
         const today = istStartOfDayUTCForDate(new Date());
         const pendingToday = await DietAssignment.findOne({ patientId: existing._id, date: today, status: 'pending', ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
         if (pendingToday) {
           // resolve price for the updated diet
           let priceForAssign = 0;
           try {
-            const DietType = require('../models/dietType').default;
             const dt = await DietType.findOne({ name: cleaned.diet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
             if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
           } catch (e) {}
@@ -538,7 +546,6 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
           if (currentDiet) {
             let priceForAssign = 0;
             try {
-              const DietType = require('../models/dietType').default;
               const dt = await DietType.findOne({ name: currentDiet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
               if (dt && typeof dt.defaultPrice === 'number') priceForAssign = dt.defaultPrice || 0;
             } catch {}
@@ -567,6 +574,7 @@ export default router;
 // DELETE /api/patients/:id (admin only)
 router.delete('/:id', auth, requireRole('admin'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment, AuditLog } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
@@ -585,6 +593,7 @@ router.delete('/:id', auth, requireRole('admin'), requireWriteAccess(), async (r
 // POST /api/patients/:id/discharge - Quick discharge action (admin, diet-supervisor)
 router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment, AuditLog, PatientMovement } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const p = await Patient.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) });
@@ -616,7 +625,7 @@ router.post('/:id/discharge', auth, requireRole('admin','diet-supervisor'), requ
     try { await AuditLog.create({ entity: 'Patient', entityId: p._id, action: 'discharge', userId: (req as any).user?.id || null, details: { dischargeDate: now, dischargeTime: `${hh}:${mm}` } }); } catch {}
 
     // notification
-    notify({
+    notifyTenant(req, {
       hospitalId: hid,
       type: 'patient_discharged',
       title: 'Patient Discharged',

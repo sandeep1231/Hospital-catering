@@ -10,6 +10,7 @@
           Deliver Selected ({{ selectedPendingCount }})
         </button>
         <button class="btn btn-sm btn-outline-dark d-print-none" (click)="printDietSheet()" [disabled]="loading || !assignments.length" title="Print diet sheet">Print</button>
+        <button class="btn btn-sm btn-outline-info d-print-none" (click)="exportExcel()" [disabled]="loading || !assignments.length" title="Export to Excel">Export</button>
         <button class="btn btn-sm btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
       <div class="d-flex flex-wrap justify-content-end mt-2" style="gap: .5rem .5rem;" *ngIf="badgeTotals.length">

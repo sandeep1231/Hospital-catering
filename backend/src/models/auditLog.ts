@@ -11,10 +11,10 @@ export interface IAuditLog extends Document {
   details?: any;
 }
 
-const AuditLogSchema: Schema = new Schema({
-  entity: { type: String, required: true },
+export const AuditLogSchema: Schema = new Schema({
+  entity: { type: String, required: true, maxlength: 100 },
   entityId: { type: Schema.Types.Mixed, required: true },
-  action: { type: String, required: true },
+  action: { type: String, required: true, maxlength: 100 },
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },

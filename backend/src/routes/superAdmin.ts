@@ -5,6 +5,8 @@ import VendorHospital from '../models/vendorHospital';
 import User from '../models/user';
 import auth from '../middleware/auth';
 import { requireSuperAdmin } from '../middleware/roles';
+import { validate } from '../middleware/validate';
+import { createHospitalSchema } from '../schemas/hospital.schemas';
 
 const router = Router();
 
@@ -52,9 +54,8 @@ router.get('/hospitals', async (req: Request, res: Response) => {
 });
 
 // POST /hospitals — Create hospital
-router.post('/hospitals', async (req: Request, res: Response) => {
-  const { name, address } = req.body || {};
-  if (!name) return res.status(400).json({ message: 'name is required' });
+router.post('/hospitals', validate({ body: createHospitalSchema }), async (req: Request, res: Response) => {
+  const { name, address } = req.body;
   const existing = await Hospital.findOne({ name });
   if (existing) return res.status(400).json({ message: 'hospital already exists' });
   const h = await Hospital.create({ name, address });

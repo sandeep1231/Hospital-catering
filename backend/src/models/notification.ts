@@ -12,14 +12,14 @@ export interface INotification extends Document {
   createdAt: Date;
 }
 
-const NotificationSchema = new Schema({
+export const NotificationSchema = new Schema({
   hospitalId: { type: Schema.Types.ObjectId, required: true, ref: 'Hospital', index: true },
-  type: { type: String, required: true }, // patient_admitted, patient_discharged, diet_assigned, diet_delivered, diet_changed, order_created
-  title: { type: String, required: true },
-  message: { type: String, required: true },
-  link: { type: String },
+  type: { type: String, required: true, maxlength: 100 }, // patient_admitted, patient_discharged, diet_assigned, diet_delivered, diet_changed, order_created
+  title: { type: String, required: true, maxlength: 300 },
+  message: { type: String, required: true, maxlength: 2000 },
+  link: { type: String, maxlength: 500 },
   createdBy: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  createdByName: { type: String, default: '' },
+  createdByName: { type: String, default: '', maxlength: 200 },
   readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 

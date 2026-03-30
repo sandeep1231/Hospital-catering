@@ -1,24 +1,28 @@
 import { Router, Request, Response } from 'express';
-import DietPlan from '../models/dietPlan';
 import auth from '../middleware/auth';
 import { requireRole, requireWriteAccess } from '../middleware/roles';
-import Order from '../models/order';
-import MenuItem from '../models/menuItem';
 import { istStartOfDayUTCForDate } from '../utils/time';
+import { validate } from '../middleware/validate';
+import { createDietPlanSchema } from '../schemas/dietPlan.schemas';
+import { TenantModels } from '../utils/tenantModels';
 
 const router = Router();
+function tm(req: Request): TenantModels { return req.tenantModels!; }
 
 router.get('/', auth, async (req: Request, res: Response) => {
+  const { DietPlan } = tm(req);
   const hid = (req as any).user?.hospitalId;
   const vid = (req as any).user?.vendorId;
   const plans = await DietPlan.find({ ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).limit(100);
   res.json(plans);
 });
 
-router.post('/', auth, requireRole('dietician', 'admin'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.post('/', auth, requireRole('dietician', 'admin'), requireWriteAccess(), validate({ body: createDietPlanSchema }), async (req: Request, res: Response) => {
+  const { DietPlan, Order, MenuItem } = tm(req);
   const hid = (req as any).user?.hospitalId;
   const vid = (req as any).user?.vendorId;
-  const p = new DietPlan({ ...req.body, hospitalId: hid, vendorId: vid });
+  const { name, patientId, startDate, endDate, recurrence, days, notes } = req.body;
+  const p = new DietPlan({ name, patientId, startDate, endDate, recurrence, days, notes, hospitalId: hid, vendorId: vid });
   await p.save();
 
   let createdOrder = null;

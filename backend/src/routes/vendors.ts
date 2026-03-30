@@ -5,15 +5,14 @@ import User from '../models/user';
 import VendorHospital from '../models/vendorHospital';
 import auth from '../middleware/auth';
 import { requireSuperAdmin } from '../middleware/roles';
+import { validate } from '../middleware/validate';
+import { vendorRegisterSchema, vendorStatusSchema, vendorUpdateSchema } from '../schemas/vendor.schemas';
 
 const router = Router();
 
 // PUBLIC: Vendor self-registration
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', validate({ body: vendorRegisterSchema }), async (req: Request, res: Response) => {
   const { vendorName, contactEmail, contactPhone, address, adminName, adminEmail, adminPassword } = req.body;
-  if (!vendorName || !contactEmail || !adminName || !adminEmail || !adminPassword) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
 
   // Check vendor name uniqueness
   const existingVendor = await Vendor.findOne({ name: vendorName });
@@ -96,7 +95,7 @@ router.get('/:id', auth, requireSuperAdmin(), async (req: Request, res: Response
 });
 
 // SUPER-ADMIN: Update vendor
-router.put('/:id', auth, requireSuperAdmin(), async (req: Request, res: Response) => {
+router.put('/:id', auth, requireSuperAdmin(), validate({ body: vendorUpdateSchema }), async (req: Request, res: Response) => {
   const { name, contactEmail, contactPhone, address } = req.body;
   const updated = await Vendor.findByIdAndUpdate(
     req.params.id,
@@ -108,10 +107,8 @@ router.put('/:id', auth, requireSuperAdmin(), async (req: Request, res: Response
 });
 
 // SUPER-ADMIN: Change vendor status (approve/reject/suspend)
-router.patch('/:id/status', auth, requireSuperAdmin(), async (req: Request, res: Response) => {
+router.patch('/:id/status', auth, requireSuperAdmin(), validate({ body: vendorStatusSchema }), async (req: Request, res: Response) => {
   const { status } = req.body;
-  const allowed = ['pending', 'approved', 'rejected', 'suspended'];
-  if (!allowed.includes(status)) return res.status(400).json({ message: 'Invalid status' });
 
   const vendor = await Vendor.findByIdAndUpdate(
     req.params.id,

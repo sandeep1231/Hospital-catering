@@ -4,17 +4,18 @@ import Hospital from '../models/hospital';
 import User from '../models/user';
 import auth from '../middleware/auth';
 import { requireRole, requireSuperAdmin } from '../middleware/roles';
+import { validate } from '../middleware/validate';
+import { vendorHospitalRequestSchema } from '../schemas/vendorHospital.schemas';
 
 const router = Router();
 
 // VENDOR-ADMIN: Request hospital assignment
-router.post('/request', auth, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/request', auth, requireRole('admin'), validate({ body: vendorHospitalRequestSchema }), async (req: Request, res: Response) => {
   const user = (req as any).user;
   const u = await User.findById(user.id);
   if (!u?.vendorId) return res.status(400).json({ message: 'No vendor associated with your account' });
 
   const { hospitalId } = req.body;
-  if (!hospitalId) return res.status(400).json({ message: 'hospitalId is required' });
 
   const hospital = await Hospital.findById(hospitalId);
   if (!hospital) return res.status(404).json({ message: 'Hospital not found' });

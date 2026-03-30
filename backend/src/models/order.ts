@@ -21,22 +21,22 @@ export interface IOrder extends Document {
   vendorId?: mongoose.Types.ObjectId;
 }
 
-const OrderItemSchema: Schema = new Schema({
+export const OrderItemSchema: Schema = new Schema({
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient' },
   menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem' },
-  quantity: { type: Number, default: 1 },
-  notes: { type: String },
+  quantity: { type: Number, default: 1, min: 1 },
+  notes: { type: String, maxlength: 500 },
   mealSlot: { type: String, enum: ['breakfast','lunch','dinner','snack','other'] },
-  unitPrice: { type: Number, default: 0 }
+  unitPrice: { type: Number, default: 0, min: 0 }
 });
 
-const OrderSchema: Schema = new Schema({
+export const OrderSchema: Schema = new Schema({
   date: { type: Date, required: true },
   items: [OrderItemSchema],
   kitchenStatus: { type: String, default: 'pending' },
   deliveryStatus: { type: String, default: 'pending' },
   assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
-  notes: { type: String },
+  notes: { type: String, maxlength: 1000 },
   sourcePlanId: { type: Schema.Types.ObjectId, ref: 'DietPlan' },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' }

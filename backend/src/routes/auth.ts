@@ -6,11 +6,13 @@ import Hospital from '../models/hospital';
 import Vendor from '../models/vendor';
 import VendorHospital from '../models/vendorHospital';
 import auth from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { preLoginSchema, loginSchema } from '../schemas/auth.schemas';
 
 const router = Router();
 
 // Pre-login: validate credentials and return vendor info + available hospitals
-router.post('/pre-login', async (req: Request, res: Response) => {
+router.post('/pre-login', validate({ body: preLoginSchema }), async (req: Request, res: Response) => {
   const { email, password } = req.body;
   const u = await User.findOne({ email });
   if (!u) return res.status(401).json({ message: 'invalid' });
@@ -51,7 +53,7 @@ router.post('/pre-login', async (req: Request, res: Response) => {
   res.json({ role: u.role, vendorName, vendorStatus, hospitals: [...hospitals, ...revokedHospitals] });
 });
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', validate({ body: loginSchema }), async (req: Request, res: Response) => {
   const { email, password, hospitalId } = req.body;
   const u = await User.findOne({ email });
   if (!u) return res.status(401).json({ message: 'invalid' });
@@ -62,7 +64,7 @@ router.post('/login', async (req: Request, res: Response) => {
   if (u.role === 'super-admin') {
     const token = jwt.sign(
       { id: u._id, role: u.role, name: u.name, hospitalId: null, vendorId: null },
-      process.env.JWT_SECRET || 'secret', { expiresIn: '8h' }
+      process.env.JWT_SECRET!, { expiresIn: '8h' }
     );
     return res.json({ token, role: u.role });
   }
@@ -105,7 +107,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
   const token = jwt.sign(
     { id: u._id, role: u.role, name: u.name, hospitalId: hid, vendorId: u.vendorId || null, readOnly },
-    process.env.JWT_SECRET || 'secret', { expiresIn: '8h' }
+    process.env.JWT_SECRET!, { expiresIn: '8h' }
   );
   res.json({ token, role: u.role });
 });

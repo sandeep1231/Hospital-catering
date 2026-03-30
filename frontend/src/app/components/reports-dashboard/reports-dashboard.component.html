@@ -19,6 +19,9 @@
         <div class="col-auto">
           <button class="btn btn-sm btn-outline-secondary" (click)="printBusinessRange()" [disabled]="!businessRows.length">Print</button>
         </div>
+        <div class="col-auto">
+          <button class="btn btn-sm btn-outline-info" (click)="exportBusinessRange()" [disabled]="!businessRows.length">Export Excel</button>
+        </div>
       </div>
 
       <!-- Business range: near-zero shift with in-place skeletons -->

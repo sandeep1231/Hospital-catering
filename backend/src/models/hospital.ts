@@ -6,8 +6,8 @@ export interface IHospital extends Document {
 }
 
 const HospitalSchema: Schema = new Schema({
-  name: { type: String, required: true, unique: true },
-  address: { type: String }
+  name: { type: String, required: true, unique: true, maxlength: 200 },
+  address: { type: String, maxlength: 500 }
 }, { timestamps: true });
 
 // Note: unique index on name is already declared via the schema field above.

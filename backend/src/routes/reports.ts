@@ -1,20 +1,21 @@
 import { Router, Request, Response } from 'express';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
-import Patient from '../models/patient';
-import PatientMovement from '../models/patientMovement';
 import Hospital from '../models/hospital';
 import dayjs from 'dayjs';
-import DietAssignment from '../models/dietAssignment';
 import mongoose from 'mongoose';
 import { IST_TZ, toIstDayString, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD, istStartOfDayUTCForDate } from '../utils/time';
+import { exportToExcel, exportToCsv } from '../utils/export';
+import { TenantModels } from '../utils/tenantModels';
 
 const router = Router();
+function tm(req: Request): TenantModels { return req.tenantModels!; }
 
 
 // Diet supervisor daily view: list all patients with today's assigned diets
 router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
   try {
+    const { DietAssignment } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
@@ -113,6 +114,7 @@ router.get('/diet-supervisor/today', auth, requireRole('admin','diet-supervisor'
 // their stay (from inDate to dischargeDate) scoped to the same hospital.
 router.get('/vendor/business-range', auth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
+    const { Patient } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
@@ -261,6 +263,7 @@ export default router;
 // Analytics for charts: diets over time, by room type, distribution, totals
 router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
+    const { DietAssignment, Patient, PatientMovement } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
@@ -491,5 +494,226 @@ router.get('/analytics', auth, requireRole('admin'), async (req: Request, res: R
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load analytics' });
+  }
+});
+
+// ======================== EXPORT ENDPOINTS ========================
+
+// Export diet-supervisor today data
+router.get('/diet-supervisor/today/export', auth, requireRole('admin','diet-supervisor','dietician'), async (req: Request, res: Response) => {
+  try {
+    const { DietAssignment } = tm(req);
+    const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
+    const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const vidObj = (vid && mongoose.Types.ObjectId.isValid(vid)) ? new mongoose.Types.ObjectId(vid) : null;
+    const qDate = String((req.query.date as string) || '').trim();
+    const tz = IST_TZ;
+    const sel = qDate && dayjs(qDate).isValid() ? qDate : toIstDayString(new Date());
+
+    const pipeline: any[] = [
+      { $addFields: { dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: tz } } } },
+      { $match: { dateStr: sel, ...(hidObj ? { hospitalId: hidObj } : {}), ...(vidObj ? { vendorId: vidObj } : {}) } },
+      { $sort: { date: 1 } },
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      {
+        $project: {
+          _id: 0,
+          patientName: '$p.name',
+          phone: { $ifNull: ['$p.phone', ''] },
+          roomType: { $ifNull: ['$p.roomType', ''] },
+          roomNo: { $ifNull: ['$p.roomNo', ''] },
+          bed: { $ifNull: ['$p.bed', ''] },
+          diet: '$diet',
+          note: { $ifNull: ['$note', ''] },
+          status: '$status',
+          fromTime: { $ifNull: ['$fromTime', ''] },
+          toTime: { $ifNull: ['$toTime', ''] }
+        }
+      }
+    ];
+    const rows = await DietAssignment.aggregate(pipeline);
+
+    const columns = [
+      { header: 'Patient', key: 'patientName', width: 25 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'Room Type', key: 'roomType', width: 15 },
+      { header: 'Room No', key: 'roomNo', width: 10 },
+      { header: 'Bed', key: 'bed', width: 10 },
+      { header: 'Diet', key: 'diet', width: 20 },
+      { header: 'Note', key: 'note', width: 25 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'From', key: 'fromTime', width: 10 },
+      { header: 'To', key: 'toTime', width: 10 },
+    ];
+    const format = req.query.format === 'csv' ? 'csv' : 'xlsx';
+    const fn = `diet-assignments-${sel}`;
+    if (format === 'csv') return exportToCsv(res, fn, columns, rows);
+    return exportToExcel(res, fn, columns, rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// Export vendor business range
+router.get('/vendor/business-range/export', auth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { Patient } = tm(req);
+    const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
+    const hidObj = (hid && mongoose.Types.ObjectId.isValid(hid)) ? new mongoose.Types.ObjectId(hid) : null;
+    const vidObj = (vid && mongoose.Types.ObjectId.isValid(vid)) ? new mongoose.Types.ObjectId(vid) : null;
+    const fromStr = String(req.query.from || '').trim();
+    const toStr = String(req.query.to || '').trim();
+    if (!fromStr || !toStr) return res.status(400).json({ error: 'from and to required' });
+    const start = istStartOfDayUTCFromYMD(fromStr);
+    const end = istEndOfDayUTCFromYMD(toStr);
+
+    const matchPatients: any = {
+      inDate: { $gte: start, $lte: end },
+      dischargeDate: { $gte: start, $lte: end }
+    };
+    if (hidObj) matchPatients.hospitalId = hidObj;
+    if (vidObj) matchPatients.vendorId = vidObj;
+
+    const patients = await Patient.find(matchPatients).sort({ inDate: 1 }).lean();
+    const rows = patients.map((p: any) => ({
+      name: p.name,
+      phone: p.phone || '',
+      inDate: p.inDate ? dayjs(p.inDate).format('YYYY-MM-DD') : '',
+      dischargeDate: p.dischargeDate ? dayjs(p.dischargeDate).format('YYYY-MM-DD') : '',
+      roomType: p.roomType || '',
+      roomNo: p.roomNo || '',
+      bed: p.bed || '',
+      diet: p.diet || '',
+    }));
+
+    const columns = [
+      { header: 'Patient', key: 'name', width: 25 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'Admission', key: 'inDate', width: 15 },
+      { header: 'Discharge', key: 'dischargeDate', width: 15 },
+      { header: 'Room Type', key: 'roomType', width: 15 },
+      { header: 'Room No', key: 'roomNo', width: 10 },
+      { header: 'Bed', key: 'bed', width: 10 },
+      { header: 'Diet', key: 'diet', width: 20 },
+    ];
+    const format = req.query.format === 'csv' ? 'csv' : 'xlsx';
+    const fn = `business-report-${fromStr}-to-${toStr}`;
+    if (format === 'csv') return exportToCsv(res, fn, columns, rows);
+    return exportToExcel(res, fn, columns, rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// Export patient diet history
+router.get('/patient/:id/export', auth, async (req: Request, res: Response) => {
+  try {
+    const { Patient, DietAssignment } = tm(req);
+    const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
+    const patient = await Patient.findOne({
+      _id: req.params.id,
+      ...(hid ? { hospitalId: hid } : {}),
+      ...(vid ? { vendorId: vid } : {})
+    }).lean();
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    const assignments = await DietAssignment.find({
+      patientId: patient._id,
+      ...(hid ? { hospitalId: hid } : {}),
+      ...(vid ? { vendorId: vid } : {})
+    }).sort({ date: 1 }).lean();
+
+    const rows = assignments.map((a: any) => ({
+      date: dayjs(a.date).format('YYYY-MM-DD'),
+      diet: a.diet,
+      note: a.note || '',
+      status: a.status,
+      fromTime: a.fromTime || '',
+      toTime: a.toTime || '',
+      price: a.price || 0,
+    }));
+
+    const columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Diet', key: 'diet', width: 20 },
+      { header: 'Note', key: 'note', width: 25 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'From', key: 'fromTime', width: 10 },
+      { header: 'To', key: 'toTime', width: 10 },
+      { header: 'Price', key: 'price', width: 10 },
+    ];
+    const format = req.query.format === 'csv' ? 'csv' : 'xlsx';
+    const fn = `patient-${(patient as any).name || 'export'}-diet-history`;
+    if (format === 'csv') return exportToCsv(res, fn, columns, rows);
+    return exportToExcel(res, fn, columns, rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// Export orders
+router.get('/orders/export', auth, requireRole('admin','diet-supervisor'), async (req: Request, res: Response) => {
+  try {
+    const { Order } = tm(req);
+    const hid = (req as any).user?.hospitalId;
+    const vid = (req as any).user?.vendorId;
+    const tz = IST_TZ;
+    const fromStr = String(req.query.from || '').trim();
+    const toStr = String(req.query.to || '').trim();
+    const cond: any = {};
+    if (hid) cond.hospitalId = hid;
+    if (vid) cond.vendorId = vid;
+    if (fromStr) cond.date = { ...cond.date, $gte: istStartOfDayUTCFromYMD(fromStr) };
+    if (toStr) cond.date = { ...cond.date, $lte: istEndOfDayUTCFromYMD(toStr) };
+
+    const orders = await Order.find(cond)
+      .populate('items.patientId', 'name')
+      .populate('items.menuItemId', 'name')
+      .sort({ date: -1 })
+      .limit(5000)
+      .lean();
+
+    const rows: any[] = [];
+    for (const o of orders as any[]) {
+      for (const item of o.items || []) {
+        rows.push({
+          date: dayjs(o.date).format('YYYY-MM-DD'),
+          patient: item.patientId?.name || '',
+          menuItem: item.menuItemId?.name || '',
+          quantity: item.quantity || 1,
+          mealSlot: item.mealSlot || '',
+          unitPrice: item.unitPrice || 0,
+          kitchenStatus: o.kitchenStatus,
+          deliveryStatus: o.deliveryStatus,
+          notes: item.notes || '',
+        });
+      }
+    }
+
+    const columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Patient', key: 'patient', width: 25 },
+      { header: 'Menu Item', key: 'menuItem', width: 25 },
+      { header: 'Qty', key: 'quantity', width: 8 },
+      { header: 'Meal Slot', key: 'mealSlot', width: 12 },
+      { header: 'Unit Price', key: 'unitPrice', width: 10 },
+      { header: 'Kitchen', key: 'kitchenStatus', width: 12 },
+      { header: 'Delivery', key: 'deliveryStatus', width: 12 },
+      { header: 'Notes', key: 'notes', width: 25 },
+    ];
+    const format = req.query.format === 'csv' ? 'csv' : 'xlsx';
+    const fn = `orders-export${fromStr ? `-${fromStr}` : ''}${toStr ? `-to-${toStr}` : ''}`;
+    if (format === 'csv') return exportToCsv(res, fn, columns, rows);
+    return exportToExcel(res, fn, columns, rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Export failed' });
   }
 });

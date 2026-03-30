@@ -186,6 +186,18 @@ export class ReportsDashboardComponent implements OnInit {
     window.print();
   }
 
+  exportBusinessRange() {
+    this.api.getBlob('/reports/vendor/business-range/export', { from: this.rangeFrom, to: this.rangeTo }).subscribe((resp: any) => {
+      const blob = resp.body;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `business-report-${this.rangeFrom}-to-${this.rangeTo}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  }
+
   // Business range pagination helpers
   get bCount(): number { return this.businessRows.length; }
   bTotalPages(): number { return Math.max(1, Math.ceil(this.bCount / this.bPageSize)); }

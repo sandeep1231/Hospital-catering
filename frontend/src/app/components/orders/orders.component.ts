@@ -10,6 +10,7 @@ import { ConfirmDeliverModalComponent } from './confirm-deliver-modal.component'
     <h4 class="me-auto">Today's Orders</h4>
     <div class="d-flex gap-2">
       <a *ngIf="canCreate && !readOnly" class="btn btn-sm btn-success" routerLink="/orders/new">New Order</a>
+      <button class="btn btn-sm btn-outline-info" (click)="exportOrders()" [disabled]="!orders.length">Export</button>
       <button class="btn btn-sm btn-primary" (click)="refresh()">Refresh</button>
     </div>
   </div>
@@ -98,4 +99,16 @@ export class OrdersComponent implements OnInit {
   }
 
   toTitle(s?: string) { if (!s) return 'Other'; return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  exportOrders() {
+    this.api.getBlob('/reports/orders/export').subscribe((resp: any) => {
+      const blob = resp.body;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'orders-export.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  }
 }

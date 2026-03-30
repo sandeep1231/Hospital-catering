@@ -26,30 +26,30 @@ export interface IPatient extends Document {
   dischargeTime?: string; // HH:MM
 }
 
-const PatientSchema: Schema = new Schema({
-  name: { type: String, required: true },
+export const PatientSchema: Schema = new Schema({
+  name: { type: String, required: true, maxlength: 200 },
   dob: { type: Date },
-  phone: { type: String },
+  phone: { type: String, maxlength: 20 },
   inDate: { type: Date },
-  inTime: { type: String },
-  roomType: { type: String },
-  bed: { type: String },
-  roomNo: { type: String },
-  diet: { type: String },
+  inTime: { type: String, maxlength: 10 },
+  roomType: { type: String, maxlength: 50 },
+  bed: { type: String, maxlength: 50 },
+  roomNo: { type: String, maxlength: 50 },
+  diet: { type: String, maxlength: 100 },
   status: { type: String, default: 'in_patient' },
   transactionType: { type: String },
-  age: { type: Number },
+  age: { type: Number, min: 0, max: 200 },
   sex: { type: String },
   // removed billing fields: totalBill, dailyBill, recurringDetails
-  feedback: { type: String },
-  allergies: [{ type: String }],
-  notes: { type: String },
+  feedback: { type: String, maxlength: 2000 },
+  allergies: [{ type: String, maxlength: 100 }],
+  notes: { type: String, maxlength: 2000 },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
-  code: { type: String },
-  dietNote: { type: String },
+  code: { type: String, maxlength: 50 },
+  dietNote: { type: String, maxlength: 500 },
   dischargeDate: { type: Date },
-  dischargeTime: { type: String }
+  dischargeTime: { type: String, maxlength: 10 }
 }, { timestamps: true });
 
 // Unique code per hospital (only when code exists and is not null)

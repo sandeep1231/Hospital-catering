@@ -10,10 +10,10 @@ export interface IVendor extends Document {
 }
 
 const VendorSchema: Schema = new Schema({
-  name: { type: String, required: true, unique: true },
-  contactEmail: { type: String, required: true },
-  contactPhone: { type: String },
-  address: { type: String },
+  name: { type: String, required: true, unique: true, maxlength: 200 },
+  contactEmail: { type: String, required: true, maxlength: 254 },
+  contactPhone: { type: String, maxlength: 20 },
+  address: { type: String, maxlength: 500 },
   status: { type: String, enum: ['pending', 'approved', 'rejected', 'suspended'], default: 'pending' },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });

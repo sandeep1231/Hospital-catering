@@ -220,4 +220,19 @@ export class DietSupervisorComponent implements OnInit {
   printDietSheet() {
     window.print();
   }
+
+  exportExcel() {
+    const params: any = { date: this.date };
+    if (this.roomType) params.roomType = this.roomType;
+    if (this.roomNo) params.roomNo = this.roomNo;
+    this.api.getBlob('/reports/diet-supervisor/today/export', params).subscribe((resp: any) => {
+      const blob = resp.body;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `diet-assignments-${this.date}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  }
 }

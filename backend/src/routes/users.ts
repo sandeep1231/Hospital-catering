@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import User from '../models/user';
 import auth from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
+import { validate } from '../middleware/validate';
+import { createUserSchema, updateUserSchema } from '../schemas/user.schemas';
 
 const router = Router();
 
@@ -18,10 +20,9 @@ router.get('/', auth, requireRole('admin'), async (req: Request, res: Response) 
 });
 
 // Create user (admin can set role)
-router.post('/', auth, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', auth, requireRole('admin'), validate({ body: createUserSchema }), async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
   const { name, email, password, role } = req.body;
-  if (!name || !email || !password) return res.status(400).json({ message: 'missing fields' });
   const allowed = ['admin','diet-supervisor','dietician'];
   const roleToSet = allowed.includes(role) ? role : 'dietician';
   const existing = await User.findOne({ email });
@@ -34,7 +35,7 @@ router.post('/', auth, requireRole('admin'), async (req: Request, res: Response)
 });
 
 // Update role or name (admin)
-router.put('/:id', auth, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', auth, requireRole('admin'), validate({ body: updateUserSchema }), async (req: Request, res: Response) => {
   const hid = (req as any).user?.hospitalId;
   const { name, role, password } = req.body;
   const u = await User.findOne({ _id: req.params.id, ...(hid ? { hospitalId: hid } : {}) });

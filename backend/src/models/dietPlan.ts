@@ -26,7 +26,7 @@ export interface IDietPlan extends Document {
   vendorId?: mongoose.Types.ObjectId;
 }
 
-const DietPlanDaySchema: Schema = new Schema({
+export const DietPlanDaySchema: Schema = new Schema({
   dayIndex: { type: Number },
   meals: [{
     slot: String,
@@ -35,14 +35,14 @@ const DietPlanDaySchema: Schema = new Schema({
   }]
 });
 
-const DietPlanSchema: Schema = new Schema({
-  name: { type: String },
+export const DietPlanSchema: Schema = new Schema({
+  name: { type: String, maxlength: 200 },
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient' },
   startDate: { type: Date, required: true },
   endDate: { type: Date },
   recurrence: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
   days: [DietPlanDaySchema],
-  notes: { type: String },
+  notes: { type: String, maxlength: 2000 },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' }
 }, { timestamps: true });

@@ -1,8 +1,12 @@
+import './types';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import compression from 'compression';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
 import patientRoutes from './routes/patients';
 import userRoutes from './routes/users';
@@ -21,6 +25,9 @@ import vendorHospitalRoutes from './routes/vendorHospitals';
 import superAdminRoutes from './routes/superAdmin';
 import Hospital from './models/hospital';
 import { fixIndexes } from './utils/fixIndexes';
+import { tenantManager } from './utils/tenantDb';
+import { tenantMiddleware } from './middleware/tenant';
+import auth from './middleware/auth';
 
 dotenv.config();
 
@@ -28,6 +35,7 @@ dotenv.config();
 process.env.TZ = 'Asia/Kolkata';
 
 const app = express();
+app.use(helmet());
 app.use(compression());
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -45,23 +53,36 @@ app.use(cors({
   credentials: true,
   maxAge: 86400,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// Global rate limiter: 100 requests per minute per IP
+app.use(rateLimit({ windowMs: 60_000, max: 100, standardHeaders: true, legacyHeaders: false }));
+
+// Strict rate limiter for auth endpoints: 10 requests per minute per IP
+const authLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
+app.use('/api/auth', authLimiter);
 
 app.use('/api/auth', authRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/users', userRoutes);
+// Shared routes (no tenant middleware needed — use shared DB models)
 app.use('/api/hospitals', hospitalRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/diet-assignments', dietAssignmentRoutes);
-app.use('/api/diets', dietTypeRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/menu-items', menuItemRoutes);
-app.use('/api/diet-plans', dietPlanRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/vendor-hospitals', vendorHospitalRoutes);
 app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/users', userRoutes);
+
+// Tenant routes — auth + tenant middleware resolves vendor DB before handlers
+app.use('/api/patients', auth, tenantMiddleware, patientRoutes);
+app.use('/api/reports', auth, tenantMiddleware, reportRoutes);
+app.use('/api/diet-assignments', auth, tenantMiddleware, dietAssignmentRoutes);
+app.use('/api/diets', auth, tenantMiddleware, dietTypeRoutes);
+app.use('/api/orders', auth, tenantMiddleware, orderRoutes);
+app.use('/api/menu-items', auth, tenantMiddleware, menuItemRoutes);
+app.use('/api/diet-plans', auth, tenantMiddleware, dietPlanRoutes);
+app.use('/api/audit-logs', auth, tenantMiddleware, auditLogRoutes);
+app.use('/api/notifications', auth, tenantMiddleware, notificationRoutes);
+
+// Global error handler (must be after routes)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 
@@ -72,9 +93,10 @@ if (!mongoUri) {
   process.exit(1);
 }
 
-mongoose.connect(mongoUri)
+mongoose.connect(mongoUri, { dbName: 'dietflow_shared' })
   .then(async () => {
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB (shared DB: dietflow_shared)');
+    tenantManager.init(mongoUri);
     // One-time index fixes/migrations
     await fixIndexes();
     // Ensure indexes exist (notably Hospitals name index for faster search/sort)
@@ -88,3 +110,15 @@ mongoose.connect(mongoUri)
     app.listen(PORT, () => console.log(`Server started on ${PORT}`));
   })
   .catch(err => console.error(err));
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  await tenantManager.closeAll();
+  await mongoose.disconnect();
+  process.exit(0);
+});
+process.on('SIGINT', async () => {
+  await tenantManager.closeAll();
+  await mongoose.disconnect();
+  process.exit(0);
+});

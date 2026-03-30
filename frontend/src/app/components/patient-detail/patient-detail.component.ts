@@ -422,7 +422,21 @@ export class PatientDetailComponent implements OnInit {
     // Dietician can submit (to update feedback only). Others based on canEditPatient
     if (this.role === 'dietician') return true;
     return this.canEditPatient();
+  }
 
-}
+  get filteredAssignments() { return this.filtered || []; }
 
+  exportDietHistory() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) return;
+    this.api.getBlob(`/reports/patient/${id}/export`).subscribe((resp: any) => {
+      const blob = resp.body;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `patient-diet-history.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  }
 }

@@ -8,9 +8,9 @@ export interface IDietType extends Document {
   vendorId?: mongoose.Types.ObjectId;
 }
 
-const DietTypeSchema = new Schema<IDietType>({
-  name: { type: String, required: true },
-  defaultPrice: { type: Number, default: 0 },
+export const DietTypeSchema = new Schema<IDietType>({
+  name: { type: String, required: true, maxlength: 200 },
+  defaultPrice: { type: Number, default: 0, min: 0 },
   active: { type: Boolean, default: true },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' }

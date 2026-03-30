@@ -189,7 +189,10 @@
   </div>
 
   <div *ngIf="patient" class="card">
-    <div class="card-header">Diet assignments</div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Diet assignments</span>
+      <button class="btn btn-sm btn-outline-info" (click)="exportDietHistory()" [disabled]="!filteredAssignments.length">Export</button>
+    </div>
     <div class="card-body">
       <div class="mb-2 d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">

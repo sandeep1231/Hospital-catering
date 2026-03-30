@@ -10,8 +10,8 @@ export interface IUser extends Document {
 }
 
 const UserSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  name: { type: String, required: true, maxlength: 200 },
+  email: { type: String, required: true, unique: true, maxlength: 254 },
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['super-admin','admin','diet-supervisor','dietician'], default: 'dietician' },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital' },

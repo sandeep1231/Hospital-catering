@@ -11,13 +11,13 @@ export interface IPatientMovement extends Document {
   end?: Date | null; // UTC instant when this movement ends (exclusive). Null means active/ongoing
 }
 
-const PatientMovementSchema: Schema = new Schema({
+export const PatientMovementSchema: Schema = new Schema({
   patientId: { type: Schema.Types.ObjectId, ref: 'Patient', index: true, required: true },
   hospitalId: { type: Schema.Types.ObjectId, ref: 'Hospital', index: true },
   vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
-  roomType: { type: String },
-  roomNo: { type: String },
-  bed: { type: String },
+  roomType: { type: String, maxlength: 50 },
+  roomNo: { type: String, maxlength: 50 },
+  bed: { type: String, maxlength: 50 },
   start: { type: Date, required: true, index: true },
   end: { type: Date, default: null, index: true }
 }, { timestamps: true });

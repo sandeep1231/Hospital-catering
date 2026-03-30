@@ -1,19 +1,21 @@
 import { Router, Request, Response } from 'express';
 import auth from '../middleware/auth';
 import { requireRole, requireWriteAccess } from '../middleware/roles';
-import DietAssignment from '../models/dietAssignment';
-import Patient from '../models/patient';
 import dayjs from 'dayjs';
 import { istStartOfDayUTCForDate, addIstDaysUTC, istStartOfDayUTCFromYMD, istEndOfDayUTCFromYMD } from '../utils/time';
 import mongoose from 'mongoose';
-import PatientMovement from '../models/patientMovement';
-import { notify } from '../utils/notify';
+import { notifyTenant } from '../utils/notify';
+import { validate } from '../middleware/validate';
+import { createDietAssignmentSchema, updateDietAssignmentSchema, bulkDeliverSchema, bulkCreateSchema, changeDietSchema } from '../schemas/dietAssignment.schemas';
+import { TenantModels } from '../utils/tenantModels';
 
 const router = Router();
+function tm(req: Request): TenantModels { return req.tenantModels!; }
 
 // Create a diet assignment for a patient (admin, diet-supervisor)
-router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), validate({ body: createDietAssignmentSchema }), async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment, DietType, AuditLog } = tm(req);
     const { patientId, date, fromTime, toTime, diet, note, price } = req.body || {};
     if (!patientId || !date || !diet) return res.status(400).json({ message: 'patientId, date and diet are required' });
     const hid = (req as any).user?.hospitalId;
@@ -34,7 +36,6 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
     let finalPrice = Number(price ?? 0);
     if (!price) {
       try {
-        const DietType = require('../models/dietType').default;
         const dt = await DietType.findOne({ name: diet, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }).lean();
         if (dt && typeof dt.defaultPrice === 'number') finalPrice = dt.defaultPrice || 0;
       } catch (e) { /* ignore */ }
@@ -42,10 +43,10 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
 
     const created = await DietAssignment.create({ patientId, hospitalId: hid, vendorId: vid, date: d, fromTime, toTime, diet, note, status: 'pending', price: finalPrice });
   // audit log
-  try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: created._id, action: 'create', userId: (req as any).user?.id || null, details: created }); } catch (e) { console.error('audit error', e); }
+  try { await AuditLog.create({ entity: 'DietAssignment', entityId: created._id, action: 'create', userId: (req as any).user?.id || null, details: created }); } catch (e) { console.error('audit error', e); }
 
   // notification
-  notify({
+  notifyTenant(req, {
     hospitalId: hid,
     type: 'diet_assigned',
     title: 'Diet Assigned',
@@ -65,6 +66,7 @@ router.post('/', auth, requireRole('admin','diet-supervisor'), requireWriteAcces
 // List patient diet assignments (auth)
 router.get('/patient/:patientId', auth, async (req: Request, res: Response) => {
   try {
+    const { DietAssignment } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const pid = req.params.patientId;
@@ -146,16 +148,17 @@ router.get('/patient/:patientId', auth, async (req: Request, res: Response) => {
 // Mark delivered (dietician, diet-supervisor, or admin)
 router.post('/:id/deliver', auth, requireRole('admin','diet-supervisor','dietician'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { DietAssignment, AuditLog } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const id = req.params.id;
   const updated = await DietAssignment.findOneAndUpdate({ _id: id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }, { status: 'delivered', deliveredAt: new Date(), deliveredBy: (req as any).user?.id }, { new: true });
   if (!updated) return res.status(404).json({ message: 'not found' });
   // audit log
-  try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: updated._id, action: 'deliver', userId: (req as any).user?.id || null, details: updated }); } catch (e) { console.error('audit error', e); }
+  try { await AuditLog.create({ entity: 'DietAssignment', entityId: updated._id, action: 'deliver', userId: (req as any).user?.id || null, details: updated }); } catch (e) { console.error('audit error', e); }
 
   // notification
-  notify({
+  notifyTenant(req, {
     hospitalId: hid,
     type: 'diet_delivered',
     title: 'Diet Delivered',
@@ -173,10 +176,10 @@ router.post('/:id/deliver', auth, requireRole('admin','diet-supervisor','dietici
 });
 
 // Bulk mark delivered (admin, diet-supervisor, dietician)
-router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietician'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietician'), requireWriteAccess(), validate({ body: bulkDeliverSchema }), async (req: Request, res: Response) => {
   try {
-    const ids: string[] = req.body.ids || [];
-    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'ids required' });
+    const { DietAssignment, AuditLog } = tm(req);
+    const ids: string[] = req.body.ids;
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const userId = (req as any).user?.id;
@@ -186,7 +189,6 @@ router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietic
     if (vid) cond.vendorId = vid;
     const result = await DietAssignment.updateMany(cond, { status: 'delivered', deliveredAt: now, deliveredBy: userId });
     try {
-      const AuditLog = require('../models/auditLog').default;
       for (const id of ids) {
         await AuditLog.create({ entity: 'DietAssignment', entityId: id, action: 'bulk-deliver', userId, details: { bulk: true } });
       }
@@ -194,7 +196,7 @@ router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietic
 
     // notification
     if (result.modifiedCount > 0) {
-      notify({
+      notifyTenant(req, {
         hospitalId: hid,
         type: 'diet_delivered',
         title: 'Bulk Diet Delivery',
@@ -213,8 +215,9 @@ router.post('/bulk-deliver', auth, requireRole('admin','diet-supervisor','dietic
 });
 
 // Update assignment (admin, diet-supervisor)
-router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), validate({ body: updateDietAssignmentSchema }), async (req: Request, res: Response) => {
   try {
+    const { DietAssignment, AuditLog } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const id = req.params.id;
@@ -224,9 +227,9 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
     if (fromTime !== undefined) body.fromTime = String(fromTime || '');
     if (toTime !== undefined) body.toTime = String(toTime || '');
     if (diet) {
-      const allowedDiets = ['Normal Diet','Liquid Diet','Protein Diet','Other'];
-      if (!allowedDiets.includes(diet)) return res.status(400).json({ message: 'diet is invalid' });
-      body.diet = String(diet);
+      const d = String(diet).trim();
+      if (d.length === 0 || d.length > 200) return res.status(400).json({ message: 'diet is invalid' });
+      body.diet = d;
     }
     if (note !== undefined) body.note = String(note || '');
     if (price !== undefined) { const p = Number(price); if (!Number.isNaN(p) && p >= 0) body.price = p; }
@@ -235,7 +238,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
   const updated = await DietAssignment.findOneAndUpdate({ _id: id, ...(hid ? { hospitalId: hid } : {}), ...(vid ? { vendorId: vid } : {}) }, body, { new: true });
   if (!updated) return res.status(404).json({ message: 'not found' });
   // audit log
-  try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: updated._id, action: 'update', userId: (req as any).user?.id || null, details: updated }); } catch (e) { console.error('audit error', e); }
+  try { await AuditLog.create({ entity: 'DietAssignment', entityId: updated._id, action: 'update', userId: (req as any).user?.id || null, details: updated }); } catch (e) { console.error('audit error', e); }
   res.json(updated);
   } catch (err) {
     console.error(err);
@@ -246,6 +249,7 @@ router.put('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAcc
 // Delete assignment (admin, diet-supervisor) - only if status is pending
 router.delete('/:id', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { DietAssignment, AuditLog } = tm(req);
     const hid = (req as any).user?.hospitalId;
     const vid = (req as any).user?.vendorId;
     const id = req.params.id;
@@ -253,7 +257,7 @@ router.delete('/:id', auth, requireRole('admin','diet-supervisor'), requireWrite
     if (!found) return res.status(404).json({ message: 'not found' });
     if (found.status !== 'pending') return res.status(400).json({ message: 'only pending assignments can be deleted' });
     await DietAssignment.deleteOne({ _id: id });
-    try { await require('../models/auditLog').default.create({ entity: 'DietAssignment', entityId: id, action: 'delete', userId: (req as any).user?.id || null, details: { _id: id } }); } catch (e) { console.error('audit error', e); }
+    try { await AuditLog.create({ entity: 'DietAssignment', entityId: id, action: 'delete', userId: (req as any).user?.id || null, details: { _id: id } }); } catch (e) { console.error('audit error', e); }
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -264,10 +268,10 @@ router.delete('/:id', auth, requireRole('admin','diet-supervisor'), requireWrite
 export default router;
 
 // Bulk create diet assignments for a range (admin, diet-supervisor)
-router.post('/bulk', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.post('/bulk', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), validate({ body: bulkCreateSchema }), async (req: Request, res: Response) => {
   try {
-    const { patientId, startDate, days, untilDischarge, diet, note, overwriteExisting } = req.body || {};
-    if (!patientId || !startDate || !diet) return res.status(400).json({ message: 'patientId, startDate and diet are required' });
+    const { Patient, DietAssignment, DietType } = tm(req);
+    const { patientId, startDate, days, untilDischarge, diet, note, overwriteExisting } = req.body;
     const hid = (req as any).user?.hospitalId;
     const patient = await Patient.findOne({ _id: patientId, ...(hid ? { hospitalId: hid } : {}) });
     if (!patient) return res.status(404).json({ message: 'patient not found' });
@@ -292,7 +296,6 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), requireWriteA
     // load default price for the diet
     let defaultPrice = 0;
     try {
-      const DietType = require('../models/dietType').default;
       const dt = await DietType.findOne({ name: diet, ...(hid ? { hospitalId: hid } : {}) }).lean();
       if (dt && typeof dt.defaultPrice === 'number') defaultPrice = dt.defaultPrice || 0;
     } catch {}
@@ -310,7 +313,7 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), requireWriteA
 
     // notification
     if (results.length > 0) {
-      notify({
+      notifyTenant(req, {
         hospitalId: hid,
         type: 'diet_assigned',
         title: 'Bulk Diet Assigned',
@@ -329,10 +332,10 @@ router.post('/bulk', auth, requireRole('admin','diet-supervisor'), requireWriteA
 });
 
 // Change diet from a given start date until end date/discharge (admin, diet-supervisor)
-router.post('/change', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
+router.post('/change', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), validate({ body: changeDietSchema }), async (req: Request, res: Response) => {
   try {
-    const { patientId, startDate, endDate, untilDischarge, newDiet, note } = req.body || {};
-    if (!patientId || !startDate || !newDiet) return res.status(400).json({ message: 'patientId, startDate and newDiet are required' });
+    const { Patient, DietAssignment, DietType } = tm(req);
+    const { patientId, startDate, endDate, untilDischarge, newDiet, note } = req.body;
     const hid = (req as any).user?.hospitalId;
     const patient = await Patient.findOne({ _id: patientId, ...(hid ? { hospitalId: hid } : {}) });
     if (!patient) return res.status(404).json({ message: 'patient not found' });
@@ -355,7 +358,6 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), requireWrit
     // resolve new price from DietType
     let price = 0;
     try {
-      const DietType = require('../models/dietType').default;
       const dt = await DietType.findOne({ name: newDiet, ...(hid ? { hospitalId: hid } : {}) }).lean();
       if (dt && typeof dt.defaultPrice === 'number') price = dt.defaultPrice || 0;
     } catch {}
@@ -373,7 +375,7 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), requireWrit
 
     // notification
     if (results.length > 0) {
-      notify({
+      notifyTenant(req, {
         hospitalId: hid,
         type: 'diet_changed',
         title: 'Diet Changed',
@@ -394,6 +396,7 @@ router.post('/change', auth, requireRole('admin','diet-supervisor'), requireWrit
 // Generate today's assignments for all eligible patients (admin, diet-supervisor)
 router.post('/generate-today', auth, requireRole('admin','diet-supervisor'), requireWriteAccess(), async (req: Request, res: Response) => {
   try {
+    const { Patient, DietAssignment, DietType } = tm(req);
     const hid = (req as any).user?.hospitalId;
   const { start } = { start: istStartOfDayUTCForDate(new Date()) };
   const end = new Date(start.getTime() + 24*60*60*1000 - 1);
@@ -404,7 +407,6 @@ router.post('/generate-today', auth, requireRole('admin','diet-supervisor'), req
     // prefetch diet prices
     let priceMap: Record<string, number> = {};
     try {
-      const DietType = require('../models/dietType').default;
       const diets = await DietType.find({ ...(hid ? { hospitalId: hid } : {}) }).lean();
       for (const d of diets) priceMap[d.name] = d.defaultPrice || 0;
     } catch {}
