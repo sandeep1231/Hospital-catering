@@ -2,8 +2,6 @@ import User from '../models/user';
 import bcrypt from 'bcryptjs';
 
 export async function seedDemo() {
-  if (process.env.NODE_ENV === 'production') return;
-
   // Bootstrap: ensure super-admin account exists (everything else is created via UI)
   const superAdmin = await User.findOne({ role: 'super-admin' });
   if (!superAdmin) {

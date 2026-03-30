@@ -9,9 +9,14 @@ import { getTenantModels } from '../utils/tenantModels';
  * Must be mounted AFTER auth middleware (needs req.user.vendorId).
  */
 export function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
-  const vendorId = (req as any).user?.vendorId;
+  const user = (req as any).user;
+
+  // Super-admins operate at platform level — let them through without tenant context
+  if (user?.role === 'super-admin') return next();
+
+  const vendorId = user?.vendorId;
   if (!vendorId) {
-    return res.status(403).json({ message: 'No vendor context. Super-admin cannot access tenant-scoped endpoints directly.' });
+    return res.status(403).json({ message: 'No vendor context.' });
   }
 
   const conn = tenantManager.getConnection(String(vendorId));

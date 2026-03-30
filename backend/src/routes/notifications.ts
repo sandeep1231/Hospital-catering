@@ -5,11 +5,13 @@ import { markReadSchema } from '../schemas/notification.schemas';
 import { TenantModels } from '../utils/tenantModels';
 
 const router = Router();
-function tm(req: Request): TenantModels { return req.tenantModels!; }
+function tm(req: Request): TenantModels | undefined { return req.tenantModels; }
 
 // GET / — list recent notifications for the user's hospital (last 50)
 router.get('/', auth, async (req: Request, res: Response) => {
-  const { Notification } = tm(req);
+  const models = tm(req);
+  if (!models) return res.json([]);
+  const { Notification } = models;
   const hid = (req as any).user?.hospitalId;
   if (!hid) return res.status(400).json({ message: 'Missing hospitalId' });
   const notifications = await Notification.find({ hospitalId: hid })
@@ -27,7 +29,9 @@ router.get('/', auth, async (req: Request, res: Response) => {
 
 // GET /unread-count — count of unread notifications for current user
 router.get('/unread-count', auth, async (req: Request, res: Response) => {
-  const { Notification } = tm(req);
+  const models = tm(req);
+  if (!models) return res.json({ count: 0 });
+  const { Notification } = models;
   const hid = (req as any).user?.hospitalId;
   const userId = (req as any).user?.id;
   if (!hid) return res.status(400).json({ message: 'Missing hospitalId' });
@@ -40,7 +44,9 @@ router.get('/unread-count', auth, async (req: Request, res: Response) => {
 
 // POST /mark-read — mark specific notifications as read
 router.post('/mark-read', auth, validate({ body: markReadSchema }), async (req: Request, res: Response) => {
-  const { Notification } = tm(req);
+  const models = tm(req);
+  if (!models) return res.json({ success: true });
+  const { Notification } = models;
   const userId = (req as any).user?.id;
   const { ids } = req.body;
   await Notification.updateMany(
@@ -52,7 +58,9 @@ router.post('/mark-read', auth, validate({ body: markReadSchema }), async (req: 
 
 // POST /mark-all-read — mark all notifications as read for current user
 router.post('/mark-all-read', auth, async (req: Request, res: Response) => {
-  const { Notification } = tm(req);
+  const models = tm(req);
+  if (!models) return res.json({ success: true });
+  const { Notification } = models;
   const hid = (req as any).user?.hospitalId;
   const userId = (req as any).user?.id;
   await Notification.updateMany(

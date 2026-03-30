@@ -1,60 +1,125 @@
 # Deployment and Environment Guide
 
 This repo has two parts:
-- backend: Node.js/Express + MongoDB
-- frontend: Angular (deployable to GitHub Pages)
+- **backend**: Node.js/Express + MongoDB
+- **frontend**: Angular SPA
 
-## Backend environment
+---
 
-Required variables (see `backend/.env.example`):
-- PORT: default 4000
-- MONGO_URI: MongoDB connection string (local or Atlas)
-- JWT_SECRET: random secret used to sign JWTs
+## Prerequisites
 
-Do not commit real secrets. For CI/CD, store these as secrets in your platform (e.g., GitHub Actions, Render, Railway, Heroku, etc.).
+1. **MongoDB Atlas** — create a free cluster at [mongodb.com/atlas](https://www.mongodb.com/atlas)
+   - Create a database user and note the connection string
+   - Under Network Access, add `0.0.0.0/0` (allow all IPs — required for Render)
+2. **Render account** — [render.com](https://render.com)
+3. **GitHub repo** — push this code to a GitHub repository
 
-## Frontend API base URL
+---
 
-The Angular `ApiService` auto-selects the base API URL at runtime:
-- If the app is served from a `github.io` domain: `https://hospital-catering-2.onrender.com/api`
-- Otherwise (local dev): `http://localhost:4000/api`
+## Deploy to Render
 
-If you deploy the backend somewhere else, update `frontend/src/app/services/api.service.ts` to point to your backend. For example, change `renderBase` to your own domain.
+### Step 1 — Backend (Web Service)
 
-## GitHub Pages (frontend)
+1. Go to Render Dashboard → **New** → **Web Service**
+2. Connect your GitHub repo
+3. Configure:
+   - **Name**: `dietflow-api` (or your choice)
+   - **Root Directory**: `backend`
+   - **Runtime**: Node
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm run start:prod`
+4. Environment variables:
+   | Variable | Value |
+   |---|---|
+   | `MONGO_URI` | Your MongoDB Atlas connection string |
+   | `JWT_SECRET` | A strong random string (e.g. `openssl rand -hex 32`) |
+   | `NODE_ENV` | `production` |
+   | `ALLOWED_ORIGINS` | `https://<your-frontend>.onrender.com` (add after creating frontend) |
+5. Deploy — note the backend URL (e.g. `https://dietflow-api.onrender.com`)
 
-A workflow exists at `.github/workflows/deploy-gh-pages.yml` that:
-- Builds the Angular app with `--base-href "/Hospital-catering/"` (project pages path)
-- Publishes `frontend/dist/catering-frontend` to GitHub Pages
+### Step 2 — Frontend (Static Site)
 
-If your repository or organization path differs, adjust the `--base-href` accordingly.
+1. **Before deploying**, update the backend URL in `frontend/src/environments/environment.prod.ts`:
+   ```ts
+   apiBase: 'https://dietflow-api.onrender.com/api'  // your actual backend URL
+   ```
+2. Commit and push this change
+3. Go to Render Dashboard → **New** → **Static Site**
+4. Connect your GitHub repo
+5. Configure:
+   - **Name**: `dietflow` (or your choice)
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm install && npx ng build --configuration production`
+   - **Publish Directory**: `dist/catering-frontend`
+6. Add a **Rewrite Rule**: Source `/*` → Destination `/index.html` (Action: Rewrite)
+   - This enables Angular client-side routing
 
-## Backend deployment options
+### Step 3 — Update CORS
 
-You can deploy the backend to any Node hosting provider. Example environment mapping for GitHub Actions (pseudo):
+Go back to the backend service and update the `ALLOWED_ORIGINS` environment variable to include the frontend URL:
+```
+https://dietflow.onrender.com
+```
 
-- secrets.MONGO_URI -> process.env.MONGO_URI
-- secrets.JWT_SECRET -> process.env.JWT_SECRET
+---
 
-Make sure CORS is allowed for your frontend origin(s), and the API is reachable at the URL configured in the frontend.
+## Post-Deploy Verification
 
-## Local development
+1. Open `https://<backend>.onrender.com/api/auth/login` — should return a 4xx (no body), confirms the API is alive
+2. Check Render logs for: `Connected to MongoDB` and `Seeded super-admin user`
+3. Open the frontend URL and log in with:
+   - **Email**: `superadmin@dietflow.in`
+   - **Password**: `admin123`
+4. **Change the super-admin password immediately** after first login
 
-1) Start backend
-- cd backend
-- copy `.env.example` to `.env` and fill values (use local Mongo or Atlas)
-- npm install
-- npm run build; npm start
+---
 
-2) Start frontend
-- cd frontend
-- npm install
-- npm start (serves on http://localhost:4200)
+## Backend Environment Variables
 
-Login and data will work against your backend at `http://localhost:4000/api`.
+| Variable | Required | Description |
+|---|---|---|
+| `MONGO_URI` | Yes | MongoDB connection string (Atlas recommended) |
+| `JWT_SECRET` | Yes | Secret for signing JWTs |
+| `NODE_ENV` | No | Set to `production` for Render |
+| `PORT` | No | Defaults to `4000` (Render sets this automatically) |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated list of allowed frontend origins |
+
+See `backend/.env.example` for a template.
+
+---
+
+## Frontend API Configuration
+
+The API base URL is configured via Angular environments:
+- **Dev**: `src/environments/environment.ts` → `http://localhost:4000/api`
+- **Prod**: `src/environments/environment.prod.ts` → update with your Render backend URL
+
+The production build (`ng build --configuration production`) swaps in `environment.prod.ts` automatically.
+
+---
+
+## Local Development
+
+1. Start backend:
+   ```bash
+   cd backend
+   cp .env.example .env   # fill in MONGO_URI and JWT_SECRET
+   npm install
+   npm start
+   ```
+
+2. Start frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm start              # serves on http://localhost:4200
+   ```
+
+---
 
 ## Troubleshooting
 
-- CORS errors: ensure backend enables CORS and includes your deployed frontend origin.
-- 404s on reload in GitHub Pages: a 404.html SPA fallback is added by the workflow — ensure it exists in the built output.
-- API base mismatch: verify `ApiService.base` logic and your deployment domain.
+- **CORS errors**: Ensure `ALLOWED_ORIGINS` includes your frontend URL exactly (with `https://`, no trailing slash)
+- **404 on page refresh**: Ensure the Render Static Site has a rewrite rule: `/*` → `/index.html`
+- **Super-admin not created**: Check Render backend logs for seed output. Ensure `MONGO_URI` is correct.
+- **Render free tier spin-down**: Free Render services sleep after 15 min of inactivity. First request takes ~30s to wake up. Upgrade to paid plan for always-on.
